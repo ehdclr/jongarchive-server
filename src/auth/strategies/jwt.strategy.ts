@@ -24,6 +24,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
+    if (!payload.accessToken) {
+      throw new UnauthorizedException('인증이 만료되었습니다.');
+    }
     return {
       id: payload.sub,
       email: payload.email,

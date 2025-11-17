@@ -9,21 +9,28 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
   constructor(configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => request?.cookies?.['refreshToken'] ?? null,
+        (request: Request) => {
+          let token = null;
+          if (request && request.cookies) {
+            token = request.cookies['refreshToken'] || null;
+          }
+          return token;
+        },
       ]),
       secretOrKey: configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       passReqToCallback: true,
     });
   }
 
-  async validate(req: Request, payload: any) {
-    const refreshToken = req.cookies?.['refreshToken'];
-    if (!refreshToken) throw new UnauthorizedException('리프레시 토큰이 없습니다.');
+  async validate(payload: any) {
+    if (!payload.refreshToken) {
+      throw new UnauthorizedException('리프레시 토큰이 만료되었습니다. 재로그인 해주세요.');
+    }
 
     return {
       id: payload.sub,
       email: payload.email,
-      refreshToken,
+      refreshToken: payload.refreshToken,
     };
   }
 }
