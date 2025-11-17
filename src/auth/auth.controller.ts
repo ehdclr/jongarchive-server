@@ -57,10 +57,8 @@ export class AuthController {
   async refreshToken(@Req() req: any, @Res() res: Response) {
     const userRefreshToken = req.user.refreshToken;
 
-    const { accessToken, refreshToken } =
-      await this.authService.refreshToken(userRefreshToken);
-    const isProduction =
-      this.configService.get<string>('NODE_ENV') === 'production';
+    const { accessToken, refreshToken } = await this.authService.refreshToken(userRefreshToken);
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
