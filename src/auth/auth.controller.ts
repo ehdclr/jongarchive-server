@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { Get, Post, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { Request, Response } from 'express';
 
 @Controller('auth')
@@ -54,11 +53,10 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @UseGuards(JwtRefreshGuard)
   async refreshToken(@Req() req: any, @Res() res: Response) {
-    const userRefreshToken = req.user.refreshToken as string;
+    const userRefreshToken = req.cookies['refreshToken'];
 
-    const { accessToken, refreshToken } = await this.authService.refreshToken(userRefreshToken);
+    const { accessToken, refreshToken } = await this.authService.refreshToken(userRefreshToken as string);
     const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
     res.cookie('accessToken', accessToken, {
@@ -82,7 +80,6 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   async logout(@Res() res: Response) {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
 

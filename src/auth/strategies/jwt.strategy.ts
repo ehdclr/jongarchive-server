@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -10,11 +11,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
-          let token = null;
-          if (request && request.cookies) {
-            token = request.cookies['accessToken'] || null;
+          if(!request?.cookies?.['accessToken']) {
+            throw new UnauthorizedException({
+              message: '인증이 만료되었습니다. 재로그인 해주세요.',
+              error: {
+                type: 'access_token_expired',
+                status: 401,
+              },
+            });
           }
-          return token;
+          return request.cookies['accessToken'];
         },
         ExtractJwt.fromAuthHeaderAsBearerToken(),
       ]),
@@ -23,10 +29,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
+  /** 
+   * 액세스 토큰 검증 및 페이로드 반환 (복호화 후)
+   * @param payload 
+   * @returns 
+   */
   async validate(payload: any) {
-    if (!payload.accessToken) {
-      throw new UnauthorizedException('인증이 만료되었습니다.');
-    }
     return {
       id: payload.sub,
       email: payload.email,

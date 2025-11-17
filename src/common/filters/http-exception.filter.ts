@@ -43,6 +43,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // 응답
     response.status(status).json({
       success: false,
+      error: error,
       data: null,
       message,
     });

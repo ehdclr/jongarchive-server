@@ -85,6 +85,9 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       });
 
+      console.log('payload', payload);
+
+  
       const user = await this.usersService.findById(payload.id);
       if (!user) {
         throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
