@@ -27,26 +27,76 @@ export class AuthController {
 
     // AuthService에서 자체 JWT 발급
 
-    //TODO: 새로 자체 JWT 발급 로직 추가 - service 호출 
-    const { accessToken, refreshToken, user } =  await this.authService.validateOauthLogin(googleProfile);
+    //TODO: 새로 자체 JWT 발급 로직 추가 - service 호출
+    const { accessToken, refreshToken, user } =
+      await this.authService.validateOauthLogin(googleProfile);
 
     // 프론트엔드로 리다이렉트 (자체 JWT 전달)
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
     const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
 
     res.cookie('accessToken', accessToken, {
-      httpOnly: true,     // JavaScript에서 접근 불가 (XSS 방지)
-      secure: this.configService.getOrThrow<string>('NODE_ENV') === 'production',  // HTTPS에서만 전송
-      sameSite: 'lax',    
-      maxAge: 7 * 24 * 60 * 60 * 1000,  // 7일
+      httpOnly: true, // JavaScript에서 접근 불가 (XSS 방지)
+      secure: isProduction, // HTTPS에서만 전송
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
     });
     res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,     // JavaScript에서 접근 불가 (XSS 방지)
-      secure: this.configService.getOrThrow<string>('NODE_ENV') === 'production',  // HTTPS에서만 전송
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,  // 7일
+      httpOnly: true, // JavaScript에서 접근 불가 (XSS 방지)
+      secure: isProduction, // HTTPS에서만 전송
+      sameSite: isProduction ? 'none' : 'lax',
       path: '/',
     });
     res.redirect(`${frontendUrl}`);
+  }
+
+  @Post('refresh')
+  async refreshToken(
+    @Body('refreshToken') refreshToken: string,
+    @Res() res: Response,
+  ) {
+    const { accessToken, refreshToken } = await this.authService.refreshToken(refreshToken);
+    const isProduction =  this.configService.get<string>('NODE_ENV') === 'production';
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
+
+    return res.status(200).json({ accessToken, refreshToken });
+  }
+
+  @Post('logout')
+  async logout(@Res() res: Response) {
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+
+    res.cookie('accessToken', '', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+      domain: this.getCookieDomain(),
+      maxAge: 0,
+    });
+
+    res.cookie('refreshToken', '', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+      domain: this.getCookieDomain(),
+      maxAge: 0,
+    });
+
+    return res.status(200).json({success: true, message: '로그아웃 되었습니다.' });
   }
 }

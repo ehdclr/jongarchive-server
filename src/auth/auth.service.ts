@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '@/users/users.service';
+import { ConfigService } from '@nestjs/config';
 import { User } from '@/database/schema';
 
 interface OauthLoginResponse {
@@ -14,10 +15,14 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
   ) {}
 
-  async validateOauthLogin(profile: any) : Promise<OauthLoginResponse> {
-    let user = await this.usersService.findByEmailAndProvider(profile.email, profile.provider);
+  async validateOauthLogin(profile: any): Promise<OauthLoginResponse> {
+    let user = await this.usersService.findByEmailAndProvider(
+      profile.email,
+      profile.provider,
+    );
 
     // 없으면 새로 생성
     if (!user) {
@@ -33,12 +38,64 @@ export class AuthService {
       });
     }
 
-    const payload = { sub: user.id, email: user.email, provider: user.provider };
-    const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-
+    const { accessToken, refreshToken } = await this.generateToken(user);
     return { accessToken, refreshToken, user };
   }
 
-  //TODO: Local 로그인 로직
+  async generateToken(user: any) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.generateAccesstoken(user),
+      this.generateRefreshToken(user),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  async generateAccesstoken(user: any) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      provider: user.provider,
+    };
+    return this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
+    });
+  }
+
+  async generateRefreshToken(user: any) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      provider: user.provider,
+    };
+    return this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+      expiresIn: this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN'),
+    });
+  }
+
+  /**
+   * 토큰 리프레시
+   *
+   */
+  async refreshToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
+      });
+
+      const user = await this.usersService.findById(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
+      }
+      const [accessToken, newRefreshToken] = await Promise.all([
+        this.generateAccesstoken(user),
+        this.generateRefreshToken(user),
+      ]);
+      return { accessToken, refreshToken: newRefreshToken };
+    } catch (error) {
+      throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
+    }
+  }
+
 }
