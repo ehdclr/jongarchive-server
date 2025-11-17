@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
 import { Get, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { Request, Response } from 'express';
 
 @Controller('auth')
@@ -52,12 +53,14 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refreshToken(
-    @Body('refreshToken') refreshToken: string,
-    @Res() res: Response,
-  ) {
-    const { accessToken, refreshToken } = await this.authService.refreshToken(refreshToken);
-    const isProduction =  this.configService.get<string>('NODE_ENV') === 'production';
+  @UseGuards(JwtRefreshGuard)
+  async refreshToken(@Req() req: any, @Res() res: Response) {
+    const userRefreshToken = req.user.refreshToken;
+
+    const { accessToken, refreshToken } =
+      await this.authService.refreshToken(userRefreshToken);
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
@@ -72,7 +75,13 @@ export class AuthController {
       path: '/',
     });
 
-    return res.status(200).json({ accessToken, refreshToken });
+    return res
+      .status(200)
+      .json({
+        success: true,
+        message: '토큰 리프레시 성공',
+        data: { accessToken, refreshToken },
+      });
   }
 
   @Post('logout')
@@ -97,6 +106,16 @@ export class AuthController {
       maxAge: 0,
     });
 
-    return res.status(200).json({success: true, message: '로그아웃 되었습니다.' });
+    return res
+      .status(200)
+      .json({ success: true, message: '로그아웃 되었습니다.' });
+  }
+
+  private getCookieDomain(): string | undefined {
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    if (isProduction) {
+      return this.configService.get<string>('COOKIE_DOMAIN');
+    }
+    return undefined;
   }
 }
