@@ -98,7 +98,13 @@ export class AuthService {
       ]);
       return { accessToken, refreshToken: newRefreshToken };
     } catch (error) {
-      throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
+      throw new UnauthorizedException({
+        message: '리프레시 토큰이 만료되었습니다.', 
+        error: {
+          type: 'refresh_token_expired',
+          status: 401,
+        },
+      });
     }
   }
 }
