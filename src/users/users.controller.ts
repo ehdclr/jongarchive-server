@@ -21,6 +21,7 @@ interface CreateUserRequest {
 
 interface ApiResponse<T> {
   success: boolean;
+  error?: string;
   data?: T;
   message?: string;
 }

@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
-import { Get, UseGuards, Req, Res } from '@nestjs/common';
+import { Get, Post, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import type { Request, Response } from 'express';
@@ -75,13 +75,11 @@ export class AuthController {
       path: '/',
     });
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: '토큰 리프레시 성공',
-        data: { accessToken, refreshToken },
-      });
+    return res.status(200).json({
+      success: true,
+      message: '토큰 리프레시 성공',
+      data: { accessToken, refreshToken },
+    });
   }
 
   @Post('logout')

@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '@/users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@/database/schema';
+import { UnauthorizedException } from '@nestjs/common';
 
 interface OauthLoginResponse {
   accessToken: string;
@@ -57,11 +58,11 @@ export class AuthService {
       provider: user.provider,
     };
     return this.jwtService.signAsync(payload, {
-      secret: this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN'),
+      secret: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN') || '15m') as any,  // ⬅️ as any 추가
     });
   }
-
+  
   async generateRefreshToken(user: any) {
     const payload = {
       sub: user.id,
@@ -69,8 +70,8 @@ export class AuthService {
       provider: user.provider,
     };
     return this.jwtService.signAsync(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
-      expiresIn: this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN'),
+      secret: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN') || '7d') as any,  // ⬅️ as any 추가
     });
   }
 
@@ -84,7 +85,7 @@ export class AuthService {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       });
 
-      const user = await this.usersService.findById(payload.sub);
+      const user = await this.usersService.findById(payload.id);
       if (!user) {
         throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
       }
@@ -97,5 +98,4 @@ export class AuthService {
       throw new UnauthorizedException('리프레시 토큰이 만료되었습니다.');
     }
   }
-
 }

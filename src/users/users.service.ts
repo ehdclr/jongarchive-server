@@ -78,4 +78,13 @@ export class UsersService {
       
     return user || null;
   }
+
+  async findById(id: number): Promise<User | null> {
+    const [user] = await this.db
+      .select()
+      .from(usersSchema)
+      .where(eq(usersSchema.id, id))
+      .limit(1);
+    return user || null;
+  }
 }
