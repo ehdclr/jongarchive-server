@@ -1,7 +1,7 @@
-import { pgTable, varchar, text, timestamp, serial } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, timestamp, bigint } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
-  id: serial('id').primaryKey(), // unsigned biginteger 사용
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(), // biginteger 사용
   socialId: varchar('social_id', { length: 255 }).default(''),
   email: varchar('email', { length: 255 }).notNull().unique(),
   phoneNumber: varchar('phone_number', { length: 255 }).default(''),
