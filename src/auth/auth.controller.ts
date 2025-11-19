@@ -52,6 +52,13 @@ export class AuthController {
     res.redirect(`${frontendUrl}`);
   }
 
+  //TODO: local 회원가입 
+  //TODO : 결국 middleware 단에서 multer 처리하면 s3 비용 증가 할 수 있음 -> 추후 고려
+  @Post('/signup')
+  async signup(@Body() signupDto: SignupDto) {
+    // return this.authService.signup(signupDto);
+  }
+
   @Post('refresh')
   async refreshToken(@Req() req: any, @Res() res: Response) {
     const userRefreshToken = req.cookies['refreshToken'];
