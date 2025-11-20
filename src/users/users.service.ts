@@ -25,8 +25,7 @@ export class UsersService {
   ) {}
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const { email, name, provider, socialId, phoneNumber, bio, password } =
-      createUserDto;
+    const { email, name, provider, socialId, phoneNumber, bio, password } = createUserDto;
 
     let profileImageUrl = '';
     const isEmailExists = await this.db
