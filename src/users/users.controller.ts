@@ -22,7 +22,7 @@ interface CreateUserRequest {
 interface ApiResponse<T> {
   success: boolean;
   error?: string;
-  data?: T;
+  payload?: T;
   message?: string;
 }
 
@@ -55,17 +55,17 @@ export class UsersController {
 
     return {
       success: true,
-      data: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        provider: user.provider,
-        socialId: user.socialId,
-        phoneNumber: user.phoneNumber,
-        profileImageUrl: user.profileImageUrl,
-        bio: user.bio,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
+      payload: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          provider: user.provider,
+          socialId: user.socialId,
+          phoneNumber: user.phoneNumber,
+          profileImageUrl: user.profileImageUrl,
+          bio: user.bio,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
       },
     };
   }

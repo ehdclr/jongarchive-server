@@ -107,7 +107,7 @@ export class AuthController {
     return res.status(200).json({
       success: true,
       message: '로그인 성공',
-      data: {
+      payload: {
         accessToken,
         refreshToken,
         user: {

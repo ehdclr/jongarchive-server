@@ -50,7 +50,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         status: status,
         message: message,
       },
-      data: null,
+      payload: null,
     });
   }
 }
