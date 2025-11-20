@@ -1,10 +1,11 @@
 import { Controller } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
-import { Get, Post, UseGuards, Req, Res } from '@nestjs/common';
+import { Get, Post, Body, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Request, Response } from 'express';
+import { SigninRequestDto } from './dto/auth.request';
+
 
 @Controller('auth')
 export class AuthController {
@@ -52,12 +53,6 @@ export class AuthController {
     res.redirect(`${frontendUrl}`);
   }
 
-  //TODO: local 회원가입 
-  //TODO : 결국 middleware 단에서 multer 처리하면 s3 비용 증가 할 수 있음 -> 추후 고려
-  @Post('/signup')
-  async signup(@Body() signupDto: SignupDto) {
-    // return this.authService.signup(signupDto);
-  }
 
   @Post('refresh')
   async refreshToken(@Req() req: any, @Res() res: Response) {
@@ -83,6 +78,34 @@ export class AuthController {
       success: true,
       message: '토큰 리프레시 성공',
       data: { accessToken, refreshToken },
+    });
+  }
+
+  //TODO: local 로그인 로직 추가
+  @Post('signin')
+  async signin(@Body() signinDto: SigninRequestDto, @Res() res: Response) {
+    
+    const { accessToken, refreshToken, user } = await this.authService.validateLocalLogin(signinDto);
+
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: '로그인 성공',
+      data: { accessToken, refreshToken, user },
     });
   }
 

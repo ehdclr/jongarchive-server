@@ -3,7 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '@/users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@/database/schema';
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { ERROR_MESSAGES } from '@/const/error';
+import * as bcrypt from 'bcrypt';
+import { SigninRequestDto } from './dto/auth.request';
+import Provider from '@/const/provider';
 
 interface OauthLoginResponse {
   accessToken: string;
@@ -17,6 +21,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    
   ) {}
 
   async validateOauthLogin(profile: any): Promise<OauthLoginResponse> {
@@ -37,6 +42,30 @@ export class AuthService {
         password: '', // OAuth는 비밀번호 불필요
         profileImage: profile.profileImage || null,
       });
+    }
+
+    const { accessToken, refreshToken } = await this.generateToken(user);
+    return { accessToken, refreshToken, user };
+  }
+
+  /**
+   * local 로그인 검증
+   * @param signinDto - 로그인 요청 정보
+   * @returns {Promise<{accessToken: string, refreshToken: string, user: User}>} - 액세스 토큰, 리프레시 토큰, 사용자 정보
+   */
+  async validateLocalLogin(signinDto: SigninRequestDto) {
+    const user = await this.usersService.findByEmailAndProvider(signinDto.email, Provider.LOCAL);
+    if (!user) {
+      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.USER_NOT_FOUND);
+    }
+
+    if (!user.password) {
+      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS);
+    }
+
+    const isPasswordValid = await bcrypt.compare(signinDto.password, user.password);
+    if (!isPasswordValid) {
+      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS);
     }
 
     const { accessToken, refreshToken } = await this.generateToken(user);
@@ -84,13 +113,10 @@ export class AuthService {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       });
-
-      console.log('payload', payload);
-
   
       const user = await this.usersService.findById(payload.id);
       if (!user) {
-        throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
+        throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.USER_NOT_FOUND);
       }
       const [accessToken, newRefreshToken] = await Promise.all([
         this.generateAccesstoken(user),
@@ -98,13 +124,7 @@ export class AuthService {
       ]);
       return { accessToken, refreshToken: newRefreshToken };
     } catch (error) {
-      throw new UnauthorizedException({
-        message: '리프레시 토큰이 만료되었습니다.', 
-        error: {
-          type: 'refresh_token_expired',
-          status: 401,
-        },
-      });
+      throw new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED.REFRESH_TOKEN_EXPIRED);
     }
   }
 }
