@@ -4,10 +4,14 @@ import {
   Body,
   UploadedFile,
   UseInterceptors,
+  Get,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { User } from '../database/schema/user';
+import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 
 interface CreateUserRequest {
   email: string;
@@ -69,4 +73,32 @@ export class UsersController {
       },
     };
   }
+
+    /**
+   * 사용자 정보 가져오기
+   * @param req - 요청 객체
+   * @returns {Promise<ApiResponse<Omit<User, 'password'>>>} - 사용자 정보
+   */
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    async me(@Req() req: any) : Promise<ApiResponse<Omit<User, 'password'>>> {
+      const userId = req.user.id;
+      const user = await this.usersService.findByIdOrFail(userId);
+      return {
+        success: true,
+        message: '사용자 정보 가져오기 성공',
+        payload: {
+          id: user?.id,
+          email: user.email,
+          name: user.name,
+          provider: user.provider,
+          socialId: user.socialId,
+          phoneNumber: user.phoneNumber,
+          profileImageUrl: user.profileImageUrl,
+          bio: user.bio,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      };
+    }
 }

@@ -4,7 +4,7 @@ import { NewUser, User, users as usersSchema } from '@/database/schema';
 import * as bcrypt from 'bcrypt';
 import { AwsService } from '@/aws/aws.service';
 import { eq, and } from 'drizzle-orm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 interface CreateUserDto {
   email: string;
@@ -25,7 +25,8 @@ export class UsersService {
   ) {}
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const { email, name, provider, socialId, phoneNumber, bio, password } = createUserDto;
+    const { email, name, provider, socialId, phoneNumber, bio, password } =
+      createUserDto;
 
     let profileImageUrl = '';
     const isEmailExists = await this.db
@@ -70,11 +71,10 @@ export class UsersService {
       .select()
       .from(usersSchema)
       .where(
-        and(eq(usersSchema.email, email), 
-        eq(usersSchema.provider, provider)),
+        and(eq(usersSchema.email, email), eq(usersSchema.provider, provider)),
       )
       .limit(1);
-      
+
     return user || null;
   }
 
@@ -85,5 +85,20 @@ export class UsersService {
       .where(eq(usersSchema.id, id))
       .limit(1);
     return user || null;
+  }
+
+  /**
+   * ID로 사용자 조회 (반드시 존재해야 함)
+   * @description 사용자가 반드시 있어야 하는 경우 사용
+   * @throws NotFoundException - 사용자를 찾을 수 없는 경우
+   */
+  async findByIdOrFail(id: number): Promise<User> {
+    const user = await this.findById(id);
+
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+
+    return user;
   }
 }

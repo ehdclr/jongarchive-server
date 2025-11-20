@@ -5,6 +5,7 @@ import { Get, Post, Body, UseGuards, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { SigninRequestDto } from './dto/auth.request';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -82,7 +83,7 @@ export class AuthController {
     });
   }
 
-  //TODO: local 로그인 로직 추가
+  
   @Post('signin')
   async signin(@Body() signinDto: SigninRequestDto, @Res() res: Response) {
     const { accessToken, refreshToken, user } =
@@ -108,9 +109,6 @@ export class AuthController {
       success: true,
       message: '로그인 성공',
       payload: {
-        accessToken,
-        refreshToken,
-        user: {
           id: user.id,
           email: user.email,
           name: user.name,
@@ -121,7 +119,6 @@ export class AuthController {
           bio: user.bio,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
-        },
       },
     });
   }
