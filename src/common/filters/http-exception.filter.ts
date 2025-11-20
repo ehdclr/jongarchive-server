@@ -19,20 +19,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
-    let error = 'Internal Server Error';
+    let type = 'internal_server_error';
 
     if (exception instanceof HttpException) {
+      const exceptionResponse = exception.getResponse() as { type: string, message: string, status: number };
       status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
-
-      if (typeof exceptionResponse === 'string') {
-        message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
-        message = (exceptionResponse as Record<string, unknown>).message as string || message;
-        error = (exceptionResponse as Record<string, unknown>).error as string || error;
-      }
+      message = exceptionResponse.message;
+      type = exceptionResponse.type;
     }
 
     // 에러 로깅
@@ -43,9 +39,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // 응답
     response.status(status).json({
       success: false,
-      error: error,
+      error: {
+        type: type,
+        status: status,
+        message: message,
+      },
       data: null,
-      message,
     });
   }
 }
