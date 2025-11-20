@@ -25,16 +25,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let type = 'internal_server_error';
 
     if (exception instanceof HttpException) {
-      const exceptionResponse = exception.getResponse() as { type: string, message: string, status: number };
       status = exception.getStatus();
-      message = exceptionResponse.message;
-      type = exceptionResponse.type;
+      const exceptionResponse = exception.getResponse();
+
+      if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
+        const errorResponse = exceptionResponse as { type: string, message: string, status: number };
+        message = errorResponse.message || message;
+        type = errorResponse.type || type;
+      } else if (typeof exceptionResponse === 'string') {
+        message = exceptionResponse;
+      }
     }
 
-    // 에러 로깅
+    const isProduction = process.env.NODE_ENV === 'production';
     this.logger.error(
-      `${request.method} ${request.url}`,
-      exception instanceof Error ? exception.stack : exception,
+      `${request.method} ${request.url} - ${status}`,
+      isProduction ? undefined : (exception instanceof Error ? exception.stack : exception),
     );
     // 응답
     response.status(status).json({

@@ -5,7 +5,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import cookieParser from 'cookie-parser';
-import { ERROR_MESSAGES } from './const/error';
+import { ERROR_MESSAGES } from './common/const/error';
 
 
 async function bootstrap() {

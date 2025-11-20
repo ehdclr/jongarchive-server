@@ -6,7 +6,6 @@ import { AuthGuard } from '@nestjs/passport';
 import type { Request, Response } from 'express';
 import { SigninRequestDto } from './dto/auth.request';
 
-
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -53,13 +52,15 @@ export class AuthController {
     res.redirect(`${frontendUrl}`);
   }
 
-
   @Post('refresh')
   async refreshToken(@Req() req: any, @Res() res: Response) {
     const userRefreshToken = req.cookies['refreshToken'];
 
-    const { accessToken, refreshToken } = await this.authService.refreshToken(userRefreshToken as string);
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    const { accessToken, refreshToken } = await this.authService.refreshToken(
+      userRefreshToken as string,
+    );
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
@@ -84,10 +85,11 @@ export class AuthController {
   //TODO: local 로그인 로직 추가
   @Post('signin')
   async signin(@Body() signinDto: SigninRequestDto, @Res() res: Response) {
-    
-    const { accessToken, refreshToken, user } = await this.authService.validateLocalLogin(signinDto);
+    const { accessToken, refreshToken, user } =
+      await this.authService.validateLocalLogin(signinDto);
 
-    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
 
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
@@ -105,7 +107,22 @@ export class AuthController {
     return res.status(200).json({
       success: true,
       message: '로그인 성공',
-      data: { accessToken, refreshToken, user },
+      data: {
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          provider: user.provider,
+          socialId: user.socialId,
+          phoneNumber: user.phoneNumber,
+          profileImageUrl: user.profileImageUrl,
+          bio: user.bio,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      },
     });
   }
 
@@ -136,6 +153,10 @@ export class AuthController {
       .json({ success: true, message: '로그아웃 되었습니다.' });
   }
 
+  /**
+   * 쿠키 도메인 가져오기
+   * @returns {string | undefined} - 쿠키 도메인
+   */
   private getCookieDomain(): string | undefined {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
     if (isProduction) {

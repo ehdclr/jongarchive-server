@@ -4,12 +4,12 @@ import { UsersService } from '@/users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@/database/schema';
 import { UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { ERROR_MESSAGES } from '@/const/error';
+import { ERROR_MESSAGES } from '@/common/const/error';
 import * as bcrypt from 'bcrypt';
 import { SigninRequestDto } from './dto/auth.request';
-import Provider from '@/const/provider';
+import Provider from '@/common/const/provider';
 
-interface OauthLoginResponse {
+interface AuthLoginResponse {
   accessToken: string;
   refreshToken: string;
   user: User;
@@ -24,7 +24,12 @@ export class AuthService {
     
   ) {}
 
-  async validateOauthLogin(profile: any): Promise<OauthLoginResponse> {
+  /**
+   * OAuth 로그인 검증
+   * @param profile - OAuth 프로필 정보
+   * @returns {Promise<AuthLoginResponse>} - OAuth 로그인 응답 정보
+   */
+  async validateOauthLogin(profile: any): Promise<AuthLoginResponse> {
     let user = await this.usersService.findByEmailAndProvider(
       profile.email,
       profile.provider,
@@ -53,13 +58,9 @@ export class AuthService {
    * @param signinDto - 로그인 요청 정보
    * @returns {Promise<{accessToken: string, refreshToken: string, user: User}>} - 액세스 토큰, 리프레시 토큰, 사용자 정보
    */
-  async validateLocalLogin(signinDto: SigninRequestDto) {
+  async validateLocalLogin(signinDto: SigninRequestDto): Promise<AuthLoginResponse> {
     const user = await this.usersService.findByEmailAndProvider(signinDto.email, Provider.LOCAL);
-    if (!user) {
-      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.USER_NOT_FOUND);
-    }
-
-    if (!user.password) {
+    if (!user || !user.password) {
       throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS);
     }
 
@@ -72,7 +73,12 @@ export class AuthService {
     return { accessToken, refreshToken, user };
   }
 
-  async generateToken(user: any) {
+  /**
+   * 토큰 생성
+   * @param user - 사용자 정보
+   * @returns {Promise<{ accessToken: string, refreshToken: string }>} - 액세스 토큰, 리프레시 토큰
+   */
+  async generateToken(user: User): Promise<{ accessToken: string, refreshToken: string }> {
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccesstoken(user),
       this.generateRefreshToken(user),
@@ -80,7 +86,12 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  async generateAccesstoken(user: any) {
+  /**
+   * 액세스 토큰 생성
+   * @param user - 사용자 정보
+   * @returns {Promise<string>} - 액세스 토큰
+   */
+  async generateAccesstoken(user: User): Promise<string> {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -92,7 +103,12 @@ export class AuthService {
     });
   }
   
-  async generateRefreshToken(user: any) {
+  /**
+   * 리프레시 토큰 생성
+   * @param user - 사용자 정보
+   * @returns {Promise<string>} - 리프레시 토큰
+   */
+  async generateRefreshToken(user: User): Promise<string> {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -106,9 +122,10 @@ export class AuthService {
 
   /**
    * 토큰 리프레시
-   *
+   * @param refreshToken - 리프레시 토큰
+   * @returns {Promise<{ accessToken: string, refreshToken: string }>} - 액세스 토큰, 리프레시 토큰
    */
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string, refreshToken: string }> {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),

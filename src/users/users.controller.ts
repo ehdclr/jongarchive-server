@@ -30,6 +30,12 @@ interface ApiResponse<T> {
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * 사용자 생성
+   * @param userData - 사용자 생성 요청 정보
+   * @param profileImage - 사용자 프로필 이미지
+   * @returns {Promise<ApiResponse<Omit<User, 'password'>>>} - 사용자 생성 응답 정보
+   */
   @Post()
   @UseInterceptors(FileInterceptor('profileImage'))
   async createUser(
