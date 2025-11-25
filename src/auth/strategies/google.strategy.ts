@@ -3,6 +3,16 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 
+interface GoogleProfile {
+  id: string;
+  name?: {
+    givenName?: string;
+    familyName?: string;
+  };
+  emails?: Array<{ value: string }>;
+  photos?: Array<{ value: string }>;
+}
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private readonly configService: ConfigService) {
@@ -15,21 +25,31 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   }
 
   async validate(
-    accessToken: string,
-    refreshToken: string,
-    profile: any,
+    _accessToken: string,
+    _refreshToken: string,
+    profile: GoogleProfile,
     done: VerifyCallback,
-  ) : Promise<any> {
+  ): Promise<void> {
     const { id, name, emails, photos } = profile;
+
+    const email = emails?.[0]?.value;
+    if (!email) {
+      return done(
+        new Error('Google 계정에서 이메일을 가져올 수 없습니다.'),
+        undefined,
+      );
+    }
 
     const user = {
       provider: 'google',
       socialId: id,
-      email: emails[0].value,
-      name: `${name.givenName} ${name.familyName}`,
-      profileImageUrl: photos[0].value || '',
+      email,
+      name: name
+        ? `${name.givenName ?? ''} ${name.familyName ?? ''}`.trim()
+        : 'Unknown',
+      profileImageUrl: photos?.[0]?.value ?? '',
     };
 
-    done(null, user); // 콜백 함수를 통해 인증 결과를 전달
+    done(null, user);
   }
 }

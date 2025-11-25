@@ -4,14 +4,13 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 
-
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
-          if(!request?.cookies?.['accessToken']) {
+          if (!request?.cookies?.['accessToken']) {
             throw new UnauthorizedException({
               message: '인증이 만료되었습니다. 재로그인 해주세요.',
               error: {
@@ -29,16 +28,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  /** 
+  /**
    * 액세스 토큰 검증 및 페이로드 반환 (복호화 후)
-   * @param payload 
-   * @returns 
+   * @param payload - JWT 페이로드 (sub, email, provider)
+   * @returns 사용자 정보
    */
-  async validate(payload: any) {
+  async validate(payload: { sub: number; email: string; provider: string }) {
     return {
       id: payload.sub,
       email: payload.email,
-      name: payload.name,
+      provider: payload.provider,
     };
   }
 }

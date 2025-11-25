@@ -21,7 +21,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
-    
   ) {}
 
   /**
@@ -58,15 +57,27 @@ export class AuthService {
    * @param signinDto - 로그인 요청 정보
    * @returns {Promise<{accessToken: string, refreshToken: string, user: User}>} - 액세스 토큰, 리프레시 토큰, 사용자 정보
    */
-  async validateLocalLogin(signinDto: SigninRequestDto): Promise<AuthLoginResponse> {
-    const user = await this.usersService.findByEmailAndProvider(signinDto.email, Provider.LOCAL);
-    if (!user || !user.password) {
-      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS);
+  async validateLocalLogin(
+    signinDto: SigninRequestDto,
+  ): Promise<AuthLoginResponse> {
+    const user = await this.usersService.findByEmailAndProvider(
+      signinDto.email,
+      Provider.LOCAL,
+    );
+    if (!user || user.password === null || user.password === undefined) {
+      throw new BadRequestException(
+        ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS,
+      );
     }
 
-    const isPasswordValid = await bcrypt.compare(signinDto.password, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      signinDto.password,
+      user.password,
+    );
     if (!isPasswordValid) {
-      throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS);
+      throw new BadRequestException(
+        ERROR_MESSAGES.BAD_REQUEST.INVALID_CREDENTIALS,
+      );
     }
 
     const { accessToken, refreshToken } = await this.generateToken(user);
@@ -78,7 +89,9 @@ export class AuthService {
    * @param user - 사용자 정보
    * @returns {Promise<{ accessToken: string, refreshToken: string }>} - 액세스 토큰, 리프레시 토큰
    */
-  async generateToken(user: User): Promise<{ accessToken: string, refreshToken: string }> {
+  async generateToken(
+    user: User,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const [accessToken, refreshToken] = await Promise.all([
       this.generateAccesstoken(user),
       this.generateRefreshToken(user),
@@ -99,10 +112,12 @@ export class AuthService {
     };
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_ACCESS_TOKEN_SECRET'),
-      expiresIn: (this.configService.get<string>('JWT_ACCESS_TOKEN_EXPIRES_IN') || '15m') as any,  // ⬅️ as any 추가
+      expiresIn: (this.configService.get<string>(
+        'JWT_ACCESS_TOKEN_EXPIRES_IN',
+      ) || '15m') as any, // ⬅️ as any 추가
     });
   }
-  
+
   /**
    * 리프레시 토큰 생성
    * @param user - 사용자 정보
@@ -116,7 +131,9 @@ export class AuthService {
     };
     return this.jwtService.signAsync(payload, {
       secret: this.configService.getOrThrow<string>('JWT_REFRESH_TOKEN_SECRET'),
-      expiresIn: (this.configService.get<string>('JWT_REFRESH_TOKEN_EXPIRES_IN') || '7d') as any,  // ⬅️ as any 추가
+      expiresIn: (this.configService.get<string>(
+        'JWT_REFRESH_TOKEN_EXPIRES_IN',
+      ) || '7d') as any, // ⬅️ as any 추가
     });
   }
 
@@ -125,15 +142,19 @@ export class AuthService {
    * @param refreshToken - 리프레시 토큰
    * @returns {Promise<{ accessToken: string, refreshToken: string }>} - 액세스 토큰, 리프레시 토큰
    */
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string, refreshToken: string }> {
+  async refreshToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const payload = await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_TOKEN_SECRET'),
       });
-  
-      const user = await this.usersService.findById(payload.id);
+
+      const user = await this.usersService.findById(payload.sub);
       if (!user) {
-        throw new BadRequestException(ERROR_MESSAGES.BAD_REQUEST.USER_NOT_FOUND);
+        throw new BadRequestException(
+          ERROR_MESSAGES.BAD_REQUEST.USER_NOT_FOUND,
+        );
       }
       const [accessToken, newRefreshToken] = await Promise.all([
         this.generateAccesstoken(user),
@@ -141,7 +162,9 @@ export class AuthService {
       ]);
       return { accessToken, refreshToken: newRefreshToken };
     } catch (error) {
-      throw new UnauthorizedException(ERROR_MESSAGES.UNAUTHORIZED.REFRESH_TOKEN_EXPIRED);
+      throw new UnauthorizedException(
+        ERROR_MESSAGES.UNAUTHORIZED.REFRESH_TOKEN_EXPIRED,
+      );
     }
   }
 }
