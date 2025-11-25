@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -7,8 +7,6 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
-
-import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AwsService {
@@ -68,7 +66,7 @@ export class AwsService {
     }
   }
 
-  async deleteFile(url: string) : Promise<void> {
+  async deleteFile(url: string): Promise<void> {
     const key = url.replace(this.bucketUrl + '/', '');
 
     const command = new DeleteObjectCommand({
@@ -83,7 +81,6 @@ export class AwsService {
       throw error;
     }
   }
-
 
   //TODO: getSignedUrl 추가 서명 만료 시간 추가 필요
   async getSignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
