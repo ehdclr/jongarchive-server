@@ -1,30 +1,28 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { DrizzleClient } from '../database/database.module';
-import { NewUser, User, users as usersSchema } from '@/database/schema';
+import {
+  Inject,
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import type { DrizzleClient } from '../database/database.module';
+import { User, users as usersSchema } from '@/database/schema';
 import * as bcrypt from 'bcrypt';
 import { AwsService } from '@/aws/aws.service';
 import { eq, and } from 'drizzle-orm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { CreateUserDto } from './dto';
 
-interface CreateUserDto {
-  email: string;
-  name: string;
-  provider: string;
-  socialId: string;
-  phoneNumber: string;
-  bio: string;
-  profileImage: Express.Multer.File | null;
-  password: string;
+export interface CreateUserWithFileDto extends CreateUserDto {
+  profileImage?: Express.Multer.File | null;
 }
 
 @Injectable()
 export class UsersService {
   constructor(
-    @Inject('DATABASE') private readonly db: typeof DrizzleClient,
+    @Inject('DATABASE') private readonly db: DrizzleClient,
     private readonly awsService: AwsService,
   ) {}
 
-  async createUser(createUserDto: CreateUserDto): Promise<User> {
+  async createUser(createUserDto: CreateUserWithFileDto): Promise<User> {
     const { email, name, provider, socialId, phoneNumber, bio, password } =
       createUserDto;
 
@@ -52,9 +50,9 @@ export class UsersService {
         email,
         name,
         provider,
-        socialId,
-        phoneNumber,
-        bio,
+        socialId: socialId || '',
+        phoneNumber: phoneNumber || '',
+        bio: bio || '',
         profileImageUrl,
         password: hashedPassword,
       })
@@ -87,11 +85,6 @@ export class UsersService {
     return user || null;
   }
 
-  /**
-   * ID로 사용자 조회 (반드시 존재해야 함)
-   * @description 사용자가 반드시 있어야 하는 경우 사용
-   * @throws NotFoundException - 사용자를 찾을 수 없는 경우
-   */
   async findByIdOrFail(id: number): Promise<User> {
     const user = await this.findById(id);
 

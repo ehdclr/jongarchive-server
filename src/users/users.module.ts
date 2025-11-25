@@ -9,7 +9,6 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { memoryStorage } from 'multer';
 
-
 @Module({
   imports: [
     DatabaseModule,
