@@ -11,7 +11,10 @@ import {
   Req,
   Patch,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PostsService, PostWithAuthor, PaginatedResult } from './posts.service';
 import { CreatePostDto, UpdatePostDto } from './dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
@@ -24,11 +27,13 @@ export class PostsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('thumbnail'))
   async create(
     @Body() createPostDto: CreatePostDto,
+    @UploadedFile() thumbnail: Express.Multer.File | null,
     @Req() req: any,
   ): Promise<PostEntity> {
-    return this.postsService.create(createPostDto, req.user.id);
+    return this.postsService.create({ ...createPostDto, thumbnail }, req.user.id);
   }
 
   @Get()
@@ -67,12 +72,14 @@ export class PostsController {
 
   @Put(':id')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updatePostDto: UpdatePostDto,
+    @UploadedFile() thumbnail: Express.Multer.File | null,
     @Req() req: any,
   ): Promise<PostEntity> {
-    return this.postsService.update(id, updatePostDto, req.user.id);
+    return this.postsService.update(id, { ...updatePostDto, thumbnail }, req.user.id);
   }
 
   @Delete(':id')

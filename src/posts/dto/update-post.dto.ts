@@ -13,4 +13,12 @@ export class UpdatePostDto {
   @IsBoolean()
   @IsOptional()
   isPublished?: boolean;
+
+  @IsString()
+  @IsOptional()
+  thumbnailUrl?: string;
+}
+
+export interface UpdatePostWithFileDto extends UpdatePostDto {
+  thumbnail?: Express.Multer.File | null;
 }

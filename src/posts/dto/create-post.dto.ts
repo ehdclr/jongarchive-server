@@ -10,3 +10,7 @@ export class CreatePostDto {
   @IsNotEmpty({ message: '내용을 입력해주세요.' })
   content: string;
 }
+
+export interface CreatePostWithFileDto extends CreatePostDto {
+  thumbnail?: Express.Multer.File | null;
+}

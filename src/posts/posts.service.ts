@@ -6,8 +6,9 @@ import {
   users as usersSchema,
 } from '@/database/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { CreatePostDto, UpdatePostDto } from './dto';
+import { CreatePostWithFileDto, UpdatePostWithFileDto } from './dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
+import { AwsService } from '@/aws/aws.service';
 
 export interface AuthorInfo {
   id: number;
@@ -31,14 +32,30 @@ export interface PaginatedResult<T> {
 
 @Injectable()
 export class PostsService {
-  constructor(@Inject('DATABASE') private readonly db: DrizzleClient) {}
+  constructor(
+    @Inject('DATABASE') private readonly db: DrizzleClient,
+    private readonly awsService: AwsService,
+  ) {}
 
-  async create(createPostDto: CreatePostDto, authorId: number): Promise<Post> {
+  async create(
+    createPostDto: CreatePostWithFileDto,
+    authorId: number,
+  ): Promise<Post> {
+    let thumbnailUrl = '';
+
+    if (createPostDto.thumbnail) {
+      thumbnailUrl = await this.awsService.uploadFile(
+        createPostDto.thumbnail,
+        'posts/thumbnails',
+      );
+    }
+
     const [post] = await this.db
       .insert(postsSchema)
       .values({
         title: createPostDto.title,
         content: createPostDto.content,
+        thumbnailUrl,
         authorId,
       })
       .returning();
@@ -79,13 +96,22 @@ export class PostsService {
 
   async update(
     id: number,
-    updatePostDto: UpdatePostDto,
+    updatePostDto: UpdatePostWithFileDto,
     authorId: number,
   ): Promise<Post> {
+    const { thumbnail, ...updateData } = updatePostDto;
+
+    if (thumbnail) {
+      updateData.thumbnailUrl = await this.awsService.uploadFile(
+        thumbnail,
+        'posts/thumbnails',
+      );
+    }
+
     const [post] = await this.db
       .update(postsSchema)
       .set({
-        ...updatePostDto,
+        ...updateData,
         updatedAt: new Date(),
       })
       .where(and(eq(postsSchema.id, id), eq(postsSchema.authorId, authorId)))
