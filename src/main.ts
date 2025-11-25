@@ -1,11 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { ResponseInterceptor } from './common/interceptors';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import cookieParser from 'cookie-parser';
-
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -37,16 +37,20 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalInterceptors(new ResponseInterceptor());
 
   const port = process.env.PORT || 8000;
   //prefix api
   app.setGlobalPrefix('api');
   await app.listen(port);
-  
-  Logger.log(`🚀 Application is running on: http://localhost:${port}`, 'Bootstrap');
+
+  Logger.log(
+    `🚀 Application is running on: http://localhost:${port}`,
+    'Bootstrap',
+  );
 }
 
-bootstrap()
+void bootstrap();
 
 //Production 모드에서는 에러 로깅을 파일에 저장
 // bootstrap().catch((error) => {
