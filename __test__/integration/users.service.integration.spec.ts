@@ -7,7 +7,6 @@ import {
   cleanupTestDatabase,
   getTestDatabase,
 } from '../setup/test-database';
-import { createUserFixture } from '@test/fixtures/user.fixture';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('UsersService (Integration)', () => {

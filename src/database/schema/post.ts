@@ -13,6 +13,7 @@ export const posts = pgTable('posts', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   title: varchar('title', { length: 255 }).notNull(),
   content: text('content').notNull(), // 마크다운 콘텐츠
+  thumbnailUrl: varchar('thumbnail_url', { length: 500 }).default(''), // 썸네일 이미지 URL
   authorId: bigint('author_id', { mode: 'number' })
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
