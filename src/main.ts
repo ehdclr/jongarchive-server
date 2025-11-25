@@ -1,11 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe, BadRequestException } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import cookieParser from 'cookie-parser';
-import { ERROR_MESSAGES } from './common/const/error';
 
 
 async function bootstrap() {
@@ -38,13 +37,6 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.useGlobalFilters(new AllExceptionsFilter());
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      transform: true,
-      forbidNonWhitelisted: true,
-    }),
-  );
 
   const port = process.env.PORT || 8000;
   //prefix api
