@@ -1,14 +1,7 @@
-import { IsEmail, IsString, Length, IsEnum, IsOptional } from "class-validator";
-
-enum Provider {
-  LOCAL = 'local',
-  GOOGLE = 'google',
-  KAKAO = 'kakao',
-}
-
+import { IsEmail, IsString, Length } from 'class-validator';
 
 export class SigninRequestDto {
-  @IsEmail()
+  @IsEmail({}, { message: '올바른 이메일 형식이 아닙니다.' })
   email: string;
 
   @IsString()

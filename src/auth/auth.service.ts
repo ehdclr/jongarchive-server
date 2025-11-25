@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '@/users/users.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@/database/schema';
-import { UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '@/common/const/error';
 import * as bcrypt from 'bcrypt';
 import { SigninRequestDto } from './dto/auth.request';
@@ -161,7 +164,7 @@ export class AuthService {
         this.generateRefreshToken(user),
       ]);
       return { accessToken, refreshToken: newRefreshToken };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException(
         ERROR_MESSAGES.UNAUTHORIZED.REFRESH_TOKEN_EXPIRED,
       );
