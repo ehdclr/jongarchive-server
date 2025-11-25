@@ -1,4 +1,5 @@
-import { IsString, IsOptional, MaxLength, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsBoolean, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdatePostDto {
   @IsString()
@@ -17,6 +18,11 @@ export class UpdatePostDto {
   @IsString()
   @IsOptional()
   thumbnailUrl?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: '카테고리 ID는 정수여야 합니다.' })
+  categoryId?: number | null; // null로 카테고리 해제 가능
 }
 
 export interface UpdatePostWithFileDto extends UpdatePostDto {

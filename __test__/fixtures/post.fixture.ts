@@ -33,6 +33,7 @@ export const createMockPost = (overrides?: Partial<Post>): Post => ({
   content: faker.lorem.paragraphs(3),
   thumbnailUrl: faker.image.url(),
   authorId: faker.number.int({ min: 1, max: 1000 }),
+  categoryId: null,
   isPublished: false,
   createdAt: faker.date.past(),
   updatedAt: faker.date.recent(),

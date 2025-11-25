@@ -63,6 +63,17 @@ export class PostsController {
     return this.postsService.findByAuthorIdWithPagination(authorId, pagination);
   }
 
+  @Get('category/:categoryId')
+  async findByCategoryId(
+    @Param('categoryId', ParseIntPipe) categoryId: number,
+    @Query() pagination: PaginationDto,
+  ): Promise<PaginatedResult<PostWithAuthor>> {
+    return this.postsService.findByCategoryIdWithPagination(
+      categoryId,
+      pagination,
+    );
+  }
+
   @Get(':id')
   async findById(
     @Param('id', ParseIntPipe) id: number,

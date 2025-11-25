@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, MaxLength } from 'class-validator';
+import { IsString, IsNotEmpty, MaxLength, IsOptional, IsInt } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreatePostDto {
   @IsString()
@@ -9,6 +10,11 @@ export class CreatePostDto {
   @IsString()
   @IsNotEmpty({ message: '내용을 입력해주세요.' })
   content: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: '카테고리 ID는 정수여야 합니다.' })
+  categoryId?: number;
 }
 
 export interface CreatePostWithFileDto extends CreatePostDto {

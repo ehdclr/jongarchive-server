@@ -57,6 +57,7 @@ export class PostsService {
         content: createPostDto.content,
         thumbnailUrl,
         authorId,
+        categoryId: createPostDto.categoryId || null,
       })
       .returning();
 
@@ -222,6 +223,43 @@ export class PostsService {
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
       .where(eq(postsSchema.authorId, authorId))
+      .orderBy(desc(postsSchema.createdAt))
+      .offset(offset)
+      .limit(limit + 1);
+
+    const hasMore = results.length > limit;
+    const data = hasMore ? results.slice(0, limit) : results;
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        hasMore,
+      },
+    };
+  }
+
+  async findByCategoryIdWithPagination(
+    categoryId: number,
+    pagination: PaginationDto,
+  ): Promise<PaginatedResult<PostWithAuthor>> {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const offset = (page - 1) * limit;
+
+    const results = await this.db
+      .select({
+        post: postsSchema,
+        author: {
+          id: usersSchema.id,
+          name: usersSchema.name,
+          profileImageUrl: usersSchema.profileImageUrl,
+        },
+      })
+      .from(postsSchema)
+      .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
+      .where(eq(postsSchema.categoryId, categoryId))
       .orderBy(desc(postsSchema.createdAt))
       .offset(offset)
       .limit(limit + 1);

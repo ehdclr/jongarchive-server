@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 import { users } from './user';
+import { categories } from './category';
 
 export const posts = pgTable('posts', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
@@ -17,6 +18,10 @@ export const posts = pgTable('posts', {
   authorId: bigint('author_id', { mode: 'number' })
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  categoryId: bigint('category_id', { mode: 'number' }).references(
+    () => categories.id,
+    { onDelete: 'set null' },
+  ), // 카테고리 삭제 시 null로 설정
   isPublished: boolean('is_published').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
@@ -26,6 +31,10 @@ export const postsRelations = relations(posts, ({ one }) => ({
   author: one(users, {
     fields: [posts.authorId],
     references: [users.id],
+  }),
+  category: one(categories, {
+    fields: [posts.categoryId],
+    references: [categories.id],
   }),
 }));
 
