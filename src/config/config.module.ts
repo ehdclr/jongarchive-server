@@ -2,7 +2,6 @@ import { Module, Global } from '@nestjs/common';
 import { ConfigModule as NestConfigModule } from '@nestjs/config';
 import { z } from 'zod';
 
-
 const envSchema = z.object({
   NODE_ENV: z
     .enum(['local', 'development', 'production', 'test'])
@@ -50,10 +49,9 @@ const envSchema = z.object({
   //! JWT 관련
   JWT_ACCESS_TOKEN_SECRET: z.string(),
   JWT_ACCESS_TOKEN_EXPIRES_IN: z.string().default('15m'),
-  
+
   JWT_REFRESH_TOKEN_SECRET: z.string(),
   JWT_REFRESH_TOKEN_EXPIRES_IN: z.string().default('7d'),
-
 });
 
 @Global() // 전역 모듈로 사용해야함
@@ -63,7 +61,7 @@ const envSchema = z.object({
       isGlobal: true,
       cache: true, // 환경변수 캐시 사용
       envFilePath: [
-        `.env.${process.env.NODE_ENV || 'local'}`,  // .env.local, .env.development 등
+        `.env.${process.env.NODE_ENV || 'local'}`, // .env.local, .env.development 등
       ],
       validate: (config: Record<string, unknown>) => {
         try {
