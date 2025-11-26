@@ -13,7 +13,7 @@ import {
 } from '@/database/schema';
 import * as bcrypt from 'bcrypt';
 import { AwsService } from '@/aws/aws.service';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, sql, or, ilike } from 'drizzle-orm';
 import {
   CreateUserDto,
   UpdateUserWithFileDto,
@@ -161,11 +161,15 @@ export class UsersService {
 
     let profileImageUrl = user.profileImageUrl;
 
+    // profileImage 파일이 있으면 S3 업로드
     if (updateUserDto.profileImage) {
       profileImageUrl = await this.awsService.uploadFile(
         updateUserDto.profileImage,
         `users/profile`,
       );
+    } else if (updateUserDto.profileImageUrl !== undefined) {
+      // profileImageUrl이 명시적으로 전달되면 그 값 사용 (빈 문자열이면 기본 이미지)
+      profileImageUrl = updateUserDto.profileImageUrl;
     }
 
     // 비밀번호 변경 시 현재 비밀번호 확인
@@ -260,5 +264,34 @@ export class UsersService {
       followingCount: followingResult[0]?.count ?? 0,
       postsCount: postsResult[0]?.count ?? 0,
     };
+  }
+
+  /**
+   * 사용자 검색 (이름 또는 userCode로 검색)
+   * 삭제된 사용자는 제외, 최대 20개 결과 반환
+   */
+  async searchUsers(query: string): Promise<User[]> {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      return [];
+    }
+
+    const searchPattern = `%${trimmedQuery}%`;
+
+    const users = await this.db
+      .select()
+      .from(usersSchema)
+      .where(
+        and(
+          isNull(usersSchema.deletedAt),
+          or(
+            ilike(usersSchema.name, searchPattern),
+            ilike(usersSchema.userCode, searchPattern),
+          ),
+        ),
+      )
+      .limit(20);
+
+    return users;
   }
 }

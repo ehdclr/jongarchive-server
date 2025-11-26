@@ -23,6 +23,10 @@ export class UpdateUserDto {
   @IsOptional()
   @MinLength(6)
   password?: string;
+
+  @IsString()
+  @IsOptional()
+  profileImageUrl?: string;
 }
 
 export interface UpdateUserWithFileDto extends UpdateUserDto {

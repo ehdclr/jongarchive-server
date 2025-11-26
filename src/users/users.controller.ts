@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   Get,
   Param,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -42,9 +43,9 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async me(@Req() req: any): Promise<UserResponse> {
+  async me(@Req() req: any) {
     const user = await this.usersService.findByIdOrFail(req.user.id);
-    return toUserResponse(user);
+    return { success: true, payload: toUserResponse(user) };
   }
 
   @Put('me')
@@ -54,12 +55,22 @@ export class UsersController {
     @Req() req: any,
     @Body() updateUserDto: UpdateUserDto,
     @UploadedFile() profileImage: Express.Multer.File | null,
-  ): Promise<UserResponse> {
+  ) {
     const user = await this.usersService.updateUser(req.user.id, {
       ...updateUserDto,
       profileImage,
     });
-    return toUserResponse(user);
+    return { success: true, payload: toUserResponse(user) };
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  async searchUsers(@Query('q') query: string) {
+    const users = await this.usersService.searchUsers(query || '');
+    return {
+      success: true,
+      payload: users.map((user) => toUserResponse(user)),
+    };
   }
 
   @Get(':userCode')

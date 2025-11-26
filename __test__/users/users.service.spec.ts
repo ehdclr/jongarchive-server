@@ -349,6 +349,26 @@ describe('UsersService', () => {
         'https://test-bucket-url/users/profile/test-image.jpg',
       );
     });
+
+    it('profileImageUrl을 빈 문자열로 설정하면 기본 이미지로 변경됨', async () => {
+      const mockUser = createMockUser({
+        id: 1,
+        profileImageUrl: 'https://existing-image.jpg',
+      });
+      const updatedUser = { ...mockUser, profileImageUrl: '' };
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      mockDB.update = jest.fn().mockReturnThis();
+      mockDB.set = jest.fn().mockReturnThis();
+      mockDB.returning = jest.fn().mockResolvedValueOnce([updatedUser]);
+
+      const result = await service.updateUser(1, {
+        profileImageUrl: '',
+      });
+
+      expect(result.profileImageUrl).toBe('');
+      expect(awsService.uploadFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('softDeleteUser', () => {
@@ -448,6 +468,67 @@ describe('UsersService', () => {
       await expect(
         service.findByUserCodeWithStats('NOTFOUND'),
       ).rejects.toThrow('사용자를 찾을 수 없습니다.');
+    });
+  });
+
+  describe('searchUsers', () => {
+    it('검색어로 사용자를 검색할 수 있어야 함 (이름 또는 userCode)', async () => {
+      const mockUsers = [
+        createMockUser({ id: 1, name: '홍길동', userCode: 'HONG1234' }),
+        createMockUser({ id: 2, name: '김철수', userCode: 'HONG5678' }),
+      ];
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce(mockUsers);
+
+      const result = await service.searchUsers('홍');
+
+      expect(result).toBeDefined();
+      expect(result.length).toBe(2);
+    });
+
+    it('검색어가 비어있으면 빈 배열 반환', async () => {
+      const result = await service.searchUsers('');
+
+      expect(result).toEqual([]);
+    });
+
+    it('검색어가 공백만 있으면 빈 배열 반환', async () => {
+      const result = await service.searchUsers('   ');
+
+      expect(result).toEqual([]);
+    });
+
+    it('검색 결과가 없으면 빈 배열 반환', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      const result = await service.searchUsers('존재하지않는사용자');
+
+      expect(result).toEqual([]);
+    });
+
+    it('삭제된 사용자는 검색 결과에 포함되지 않아야 함', async () => {
+      const mockUsers = [
+        createMockUser({ id: 1, name: '홍길동', userCode: 'HONG1234', deletedAt: null }),
+      ];
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce(mockUsers);
+
+      const result = await service.searchUsers('홍');
+
+      expect(result.length).toBe(1);
+      expect(result[0].deletedAt).toBeNull();
+    });
+
+    it('검색 결과는 최대 20개로 제한되어야 함', async () => {
+      const mockUsers = Array.from({ length: 20 }, (_, i) =>
+        createMockUser({ id: i + 1, name: `홍길동${i}`, userCode: `HONG${i}` }),
+      );
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce(mockUsers);
+
+      const result = await service.searchUsers('홍');
+
+      expect(result.length).toBeLessThanOrEqual(20);
     });
   });
 });
