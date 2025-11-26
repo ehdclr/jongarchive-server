@@ -19,7 +19,8 @@
       "@common/*": ["src/common/*"],
       "@config/*": ["src/config/*"],
       "@database/*": ["src/database/*"],
-      "@__test__/*": ["__test__/*"]
+      "@__test__/*": ["__test__/*"],
+      "@test/*": ["__test__/*"]
     },
     "incremental": true,
     "skipLibCheck": true,

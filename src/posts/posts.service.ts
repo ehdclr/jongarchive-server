@@ -14,6 +14,7 @@ export interface AuthorInfo {
   id: number;
   name: string;
   profileImageUrl: string | null;
+  userCode: string;
 }
 
 export interface PostWithAuthor {
@@ -160,6 +161,7 @@ export class PostsService {
           id: usersSchema.id,
           name: usersSchema.name,
           profileImageUrl: usersSchema.profileImageUrl,
+          userCode: usersSchema.userCode,
         },
       })
       .from(postsSchema)
@@ -189,6 +191,7 @@ export class PostsService {
           id: usersSchema.id,
           name: usersSchema.name,
           profileImageUrl: usersSchema.profileImageUrl,
+          userCode: usersSchema.userCode,
         },
       })
       .from(postsSchema)
@@ -218,6 +221,7 @@ export class PostsService {
           id: usersSchema.id,
           name: usersSchema.name,
           profileImageUrl: usersSchema.profileImageUrl,
+          userCode: usersSchema.userCode,
         },
       })
       .from(postsSchema)
@@ -255,6 +259,7 @@ export class PostsService {
           id: usersSchema.id,
           name: usersSchema.name,
           profileImageUrl: usersSchema.profileImageUrl,
+          userCode: usersSchema.userCode,
         },
       })
       .from(postsSchema)

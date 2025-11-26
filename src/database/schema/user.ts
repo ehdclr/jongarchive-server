@@ -13,6 +13,7 @@ export const users = pgTable('users', {
   id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   socialId: varchar('social_id', { length: 255 }).default(''),
   email: varchar('email', { length: 255 }).notNull().unique(),
+  userCode: varchar('user_code', { length: 8 }).notNull().unique(),
   phoneNumber: varchar('phone_number', { length: 255 }).default(''),
   name: varchar('name', { length: 255 }).notNull(),
   profileImageUrl: varchar('profile_image_url', { length: 255 }).default(''),

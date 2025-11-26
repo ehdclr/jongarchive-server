@@ -25,6 +25,30 @@ export class UsersService {
     private readonly awsService: AwsService,
   ) {}
 
+  private generateUserCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  private async generateUniqueUserCode(maxRetries = 5): Promise<string> {
+    for (let i = 0; i < maxRetries; i++) {
+      const code = this.generateUserCode();
+      const existing = await this.db
+        .select()
+        .from(usersSchema)
+        .where(eq(usersSchema.userCode, code))
+        .limit(1);
+      if (existing.length === 0) {
+        return code;
+      }
+    }
+    throw new BadRequestException('유저 코드 생성에 실패했습니다. 다시 시도해주세요.');
+  }
+
   async createUser(createUserDto: CreateUserWithFileDto): Promise<User> {
     const { email, name, provider, socialId, phoneNumber, bio, password } =
       createUserDto;
@@ -47,12 +71,14 @@ export class UsersService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const userCode = await this.generateUniqueUserCode();
     const [user] = await this.db
       .insert(usersSchema)
       .values({
         email,
         name,
         provider,
+        userCode,
         socialId: socialId || '',
         phoneNumber: phoneNumber || '',
         bio: bio || '',
