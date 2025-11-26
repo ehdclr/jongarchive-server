@@ -2,16 +2,25 @@ import {
   Controller,
   Post,
   Put,
+  Delete,
   Body,
   UploadedFile,
   UseInterceptors,
   Get,
+  Param,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto, UserResponse, toUserResponse } from './dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  UserResponse,
+  toUserResponse,
+  toPublicUserWithStatsResponse,
+  PublicUserWithStatsResponse,
+} from './dto';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 
 @Controller('users')
@@ -51,5 +60,26 @@ export class UsersController {
       profileImage,
     });
     return toUserResponse(user);
+  }
+
+  @Get(':userCode')
+  @UseGuards(JwtAuthGuard)
+  async getUserByCode(
+    @Param('userCode') userCode: string,
+  ): Promise<PublicUserWithStatsResponse> {
+    const { user, followersCount, followingCount, postsCount } =
+      await this.usersService.findByUserCodeWithStats(userCode);
+    return toPublicUserWithStatsResponse(user, {
+      followersCount,
+      followingCount,
+      postsCount,
+    });
+  }
+
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  async deleteMe(@Req() req: any) {
+    await this.usersService.softDeleteUser(req.user.id);
+    return { success: true, message: '계정이 삭제되었습니다.' };
   }
 }

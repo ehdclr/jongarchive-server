@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength } from 'class-validator';
+import { IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
 
 export class UpdateUserDto {
   @IsString()
@@ -14,6 +14,15 @@ export class UpdateUserDto {
   @IsOptional()
   @MaxLength(500)
   bio?: string;
+
+  @IsString()
+  @IsOptional()
+  currentPassword?: string;
+
+  @IsString()
+  @IsOptional()
+  @MinLength(6)
+  password?: string;
 }
 
 export interface UpdateUserWithFileDto extends UpdateUserDto {

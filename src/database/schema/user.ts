@@ -23,6 +23,7 @@ export const users = pgTable('users', {
   bio: text('bio').default(''),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  deletedAt: timestamp('deleted_at'), // soft delete
 });
 
 //TODO: 관계 설정

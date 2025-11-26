@@ -1,28 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { Request } from 'express';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(configService: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        (request: Request) => {
-          if (!request?.cookies?.['accessToken']) {
-            throw new UnauthorizedException({
-              message: '인증이 만료되었습니다. 재로그인 해주세요.',
-              error: {
-                type: 'access_token_expired',
-                status: 401,
-              },
-            });
-          }
-          return request.cookies['accessToken'];
-        },
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ]),
+      // Bearer 토큰을 Authorization 헤더에서 추출
+      // accessToken은 클라이언트가 localStorage에 저장하고 요청 시 헤더로 전송
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('JWT_ACCESS_TOKEN_SECRET'),
     });

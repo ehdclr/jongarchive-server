@@ -51,6 +51,7 @@ export const createMockUser = (overrides?: Partial<User>): User => ({
   password: faker.internet.password(),
   createdAt: faker.date.past(),
   updatedAt: faker.date.recent(),
+  deletedAt: null,
   ...overrides,
 });
 

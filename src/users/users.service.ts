@@ -5,10 +5,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { DrizzleClient } from '../database/database.module';
-import { User, users as usersSchema } from '@/database/schema';
+import {
+  User,
+  users as usersSchema,
+  follows as followsSchema,
+  posts as postsSchema,
+} from '@/database/schema';
 import * as bcrypt from 'bcrypt';
 import { AwsService } from '@/aws/aws.service';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull, sql } from 'drizzle-orm';
 import {
   CreateUserDto,
   UpdateUserWithFileDto,
@@ -16,6 +21,13 @@ import {
 
 export interface CreateUserWithFileDto extends CreateUserDto {
   profileImage?: Express.Multer.File | null;
+}
+
+export interface UserWithStats {
+  user: User;
+  followersCount: number;
+  followingCount: number;
+  postsCount: number;
 }
 
 @Injectable()
@@ -114,6 +126,23 @@ export class UsersService {
     return user || null;
   }
 
+  async findByUserCode(userCode: string): Promise<User | null> {
+    const [user] = await this.db
+      .select()
+      .from(usersSchema)
+      .where(eq(usersSchema.userCode, userCode))
+      .limit(1);
+    return user || null;
+  }
+
+  async findByUserCodeOrFail(userCode: string): Promise<User> {
+    const user = await this.findByUserCode(userCode);
+    if (!user) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+    return user;
+  }
+
   async findByIdOrFail(id: number): Promise<User> {
     const user = await this.findById(id);
 
@@ -139,6 +168,22 @@ export class UsersService {
       );
     }
 
+    // 비밀번호 변경 시 현재 비밀번호 확인
+    let hashedPassword = user.password;
+    if (updateUserDto.password) {
+      if (!updateUserDto.currentPassword) {
+        throw new BadRequestException('현재 비밀번호를 입력해주세요.');
+      }
+      const isPasswordValid = await bcrypt.compare(
+        updateUserDto.currentPassword,
+        user.password || '',
+      );
+      if (!isPasswordValid) {
+        throw new BadRequestException('현재 비밀번호가 올바르지 않습니다.');
+      }
+      hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
     const [updatedUser] = await this.db
       .update(usersSchema)
       .set({
@@ -146,10 +191,74 @@ export class UsersService {
         phoneNumber: updateUserDto.phoneNumber ?? user.phoneNumber,
         bio: updateUserDto.bio ?? user.bio,
         profileImageUrl,
+        password: hashedPassword,
       })
       .where(eq(usersSchema.id, id))
       .returning();
 
     return updatedUser;
+  }
+
+  async softDeleteUser(id: number): Promise<void> {
+    const user = await this.findByIdOrFail(id);
+
+    // 이미 삭제된 계정인지 확인
+    if (user.deletedAt) {
+      throw new BadRequestException('이미 삭제된 계정입니다.');
+    }
+
+    await this.db
+      .update(usersSchema)
+      .set({ deletedAt: new Date() })
+      .where(eq(usersSchema.id, id));
+  }
+
+  async findByIdNotDeleted(id: number): Promise<User | null> {
+    const [user] = await this.db
+      .select()
+      .from(usersSchema)
+      .where(and(eq(usersSchema.id, id), isNull(usersSchema.deletedAt)))
+      .limit(1);
+    return user || null;
+  }
+
+  /**
+   * userCode로 사용자와 통계(팔로워/팔로잉/포스트 수)를 함께 조회
+   * N+1 문제를 피하기 위해 서브쿼리 사용
+   */
+  async findByUserCodeWithStats(userCode: string): Promise<UserWithStats> {
+    const user = await this.findByUserCodeOrFail(userCode);
+
+    // 팔로워 수 (나를 팔로우하는 사람 수)
+    const followersCountQuery = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(followsSchema)
+      .where(eq(followsSchema.followingId, user.id));
+
+    // 팔로잉 수 (내가 팔로우하는 사람 수)
+    const followingCountQuery = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(followsSchema)
+      .where(eq(followsSchema.followerId, user.id));
+
+    // 포스트 수
+    const postsCountQuery = this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(postsSchema)
+      .where(eq(postsSchema.authorId, user.id));
+
+    // 병렬로 실행
+    const [followersResult, followingResult, postsResult] = await Promise.all([
+      followersCountQuery,
+      followingCountQuery,
+      postsCountQuery,
+    ]);
+
+    return {
+      user,
+      followersCount: followersResult[0]?.count ?? 0,
+      followingCount: followingResult[0]?.count ?? 0,
+      postsCount: postsResult[0]?.count ?? 0,
+    };
   }
 }

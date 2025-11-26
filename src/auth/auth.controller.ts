@@ -74,21 +74,9 @@ export class AuthController {
       }
     }
 
-    res.redirect(
-      `${frontendOrigin}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`,
-    );
-  }
-
-  @Post('set-cookies')
-  async setCookies(
-    @Body() body: { accessToken: string; refreshToken: string },
-    @Res() res: Response,
-  ) {
-    this.setAuthCookies(res, body.accessToken, body.refreshToken);
-    return res.status(200).json({
-      success: true,
-      message: '쿠키 설정 완료',
-    });
+    // refreshToken은 쿠키로, accessToken은 query param으로 전달
+    this.setRefreshTokenCookie(res, refreshToken);
+    res.redirect(`${frontendOrigin}/auth/callback?accessToken=${accessToken}`);
   }
 
   @Post('refresh')
@@ -98,10 +86,12 @@ export class AuthController {
       userRefreshToken as string,
     );
 
-    this.setAuthCookies(res, accessToken, refreshToken);
+    // refreshToken은 쿠키로, accessToken은 응답 body로 반환
+    this.setRefreshTokenCookie(res, refreshToken);
     return res.status(200).json({
       success: true,
       message: '토큰 리프레시 성공',
+      payload: { accessToken },
     });
   }
 
@@ -110,37 +100,35 @@ export class AuthController {
     const { accessToken, refreshToken, user } =
       await this.authService.validateLocalLogin(signinDto);
 
-    this.setAuthCookies(res, accessToken, refreshToken);
+    // refreshToken은 쿠키로, accessToken은 응답 body로 반환
+    this.setRefreshTokenCookie(res, refreshToken);
     return res.status(200).json({
       success: true,
       message: '로그인 성공',
-      payload: toUserResponse(user),
+      payload: {
+        user: toUserResponse(user),
+        accessToken,
+      },
     });
   }
 
   @Post('logout')
   async logout(@Res() res: Response) {
-    this.clearAuthCookies(res);
+    this.clearRefreshTokenCookie(res);
     return res.status(200).json({
       success: true,
       message: '로그아웃 되었습니다.',
     });
   }
 
-  private setAuthCookies(
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ): void {
+  /**
+   * refreshToken만 httpOnly 쿠키로 설정
+   * accessToken은 클라이언트가 localStorage에 저장
+   */
+  private setRefreshTokenCookie(res: Response, refreshToken: string): void {
     const isProduction =
       this.configService.get<string>('NODE_ENV') === 'production';
 
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
-      path: '/',
-    });
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: isProduction,
@@ -149,19 +137,11 @@ export class AuthController {
     });
   }
 
-  private clearAuthCookies(res: Response): void {
+  private clearRefreshTokenCookie(res: Response): void {
     const isProduction =
       this.configService.get<string>('NODE_ENV') === 'production';
     const cookieDomain = this.getCookieDomain();
 
-    res.cookie('accessToken', '', {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
-      path: '/',
-      domain: cookieDomain,
-      maxAge: 0,
-    });
     res.cookie('refreshToken', '', {
       httpOnly: true,
       secure: isProduction,

@@ -226,4 +226,228 @@ describe('UsersService', () => {
       );
     });
   });
+
+  describe('findByUserCode', () => {
+    it('userCode로 사용자를 찾을 수 있어야 함', async () => {
+      const mockUser = createMockUser({ userCode: 'ABCD1234' });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+
+      const result = await service.findByUserCode('ABCD1234');
+
+      expect(result).toBeDefined();
+      expect(result?.userCode).toBe('ABCD1234');
+    });
+
+    it('사용자가 없으면 null을 반환해야 함', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      const result = await service.findByUserCode('NOTFOUND');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByUserCodeOrFail', () => {
+    it('userCode로 사용자를 찾을 수 있어야 함', async () => {
+      const mockUser = createMockUser({ userCode: 'ABCD1234' });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+
+      const result = await service.findByUserCodeOrFail('ABCD1234');
+
+      expect(result).toBeDefined();
+      expect(result.userCode).toBe('ABCD1234');
+    });
+
+    it('사용자가 없으면 NotFoundException 발생', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      await expect(service.findByUserCodeOrFail('NOTFOUND')).rejects.toThrow(
+        '사용자를 찾을 수 없습니다.',
+      );
+    });
+  });
+
+  describe('updateUser', () => {
+    it('사용자 정보를 업데이트 할 수 있어야 함', async () => {
+      const mockUser = createMockUser({ id: 1, name: 'Old Name' });
+      const updatedUser = { ...mockUser, name: 'New Name' };
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      mockDB.update = jest.fn().mockReturnThis();
+      mockDB.set = jest.fn().mockReturnThis();
+      mockDB.returning = jest.fn().mockResolvedValueOnce([updatedUser]);
+
+      const result = await service.updateUser(1, { name: 'New Name' });
+
+      expect(result.name).toBe('New Name');
+    });
+
+    it('비밀번호 변경 시 현재 비밀번호가 필요함', async () => {
+      const mockUser = createMockUser({ id: 1, password: 'hashed_password' });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+
+      await expect(
+        service.updateUser(1, { password: 'new_password' }),
+      ).rejects.toThrow('현재 비밀번호를 입력해주세요.');
+    });
+
+    it('현재 비밀번호가 틀리면 BadRequestException 발생', async () => {
+      const mockUser = createMockUser({ id: 1, password: 'hashed_password' });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+
+      await expect(
+        service.updateUser(1, {
+          currentPassword: 'wrong_password',
+          password: 'new_password',
+        }),
+      ).rejects.toThrow('현재 비밀번호가 올바르지 않습니다.');
+    });
+
+    it('현재 비밀번호가 맞으면 비밀번호를 변경할 수 있어야 함', async () => {
+      const mockUser = createMockUser({ id: 1, password: 'hashed_password' });
+      const updatedUser = { ...mockUser, password: 'new_hashed_password' };
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      mockDB.update = jest.fn().mockReturnThis();
+      mockDB.set = jest.fn().mockReturnThis();
+      mockDB.returning = jest.fn().mockResolvedValueOnce([updatedUser]);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+      (bcrypt.hash as jest.Mock).mockResolvedValueOnce('new_hashed_password');
+
+      const result = await service.updateUser(1, {
+        currentPassword: 'correct_password',
+        password: 'new_password',
+      });
+
+      expect(bcrypt.hash).toHaveBeenCalledWith('new_password', 10);
+      expect(result).toBeDefined();
+    });
+
+    it('프로필 이미지 업데이트 시 S3에 업로드', async () => {
+      const mockUser = createMockUser({ id: 1 });
+      const updatedUser = {
+        ...mockUser,
+        profileImageUrl: 'https://test-bucket-url/users/profile/test-image.jpg',
+      };
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      mockDB.update = jest.fn().mockReturnThis();
+      mockDB.set = jest.fn().mockReturnThis();
+      mockDB.returning = jest.fn().mockResolvedValueOnce([updatedUser]);
+
+      const result = await service.updateUser(1, {
+        profileImage: mockFile,
+      });
+
+      expect(awsService.uploadFile).toHaveBeenCalled();
+      expect(result.profileImageUrl).toBe(
+        'https://test-bucket-url/users/profile/test-image.jpg',
+      );
+    });
+  });
+
+  describe('softDeleteUser', () => {
+    it('사용자를 소프트 삭제할 수 있어야 함', async () => {
+      const mockUser = createMockUser({ id: 1, deletedAt: null });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+      mockDB.update = jest.fn().mockReturnThis();
+      mockDB.set = jest.fn().mockReturnThis();
+
+      await service.softDeleteUser(1);
+
+      expect(mockDB.update).toHaveBeenCalled();
+      expect(mockDB.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deletedAt: expect.any(Date),
+        }),
+      );
+    });
+
+    it('이미 삭제된 사용자는 BadRequestException 발생', async () => {
+      const mockUser = createMockUser({ id: 1, deletedAt: new Date() });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+
+      await expect(service.softDeleteUser(1)).rejects.toThrow(
+        '이미 삭제된 계정입니다.',
+      );
+    });
+
+    it('사용자가 없으면 NotFoundException 발생', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      await expect(service.softDeleteUser(999)).rejects.toThrow(
+        '사용자를 찾을 수 없습니다.',
+      );
+    });
+  });
+
+  describe('findByIdNotDeleted', () => {
+    it('삭제되지 않은 사용자를 찾을 수 있어야 함', async () => {
+      const mockUser = createMockUser({ id: 1, deletedAt: null });
+
+      mockDB.limit = jest.fn().mockResolvedValueOnce([mockUser]);
+
+      const result = await service.findByIdNotDeleted(1);
+
+      expect(result).toBeDefined();
+      expect(result?.id).toBe(1);
+      expect(result?.deletedAt).toBeNull();
+    });
+
+    it('삭제된 사용자는 null 반환', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      const result = await service.findByIdNotDeleted(1);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findByUserCodeWithStats', () => {
+    it('userCode로 사용자와 통계를 함께 조회할 수 있어야 함', async () => {
+      const mockUser = createMockUser({ id: 1, userCode: 'ABCD1234' });
+
+      // findByUserCode는 limit()을 호출하고, count 쿼리들은 where()에서 끝남
+      let whereCallCount = 0;
+
+      mockDB.limit = jest.fn().mockImplementation(() => {
+        return Promise.resolve([mockUser]);
+      });
+
+      // where가 Promise를 반환하도록 설정 (count 쿼리용)
+      mockDB.where = jest.fn().mockImplementation(() => {
+        whereCallCount++;
+        // 첫 번째는 findByUserCode의 where (limit이 체이닝됨)
+        // 그 이후는 count 쿼리들 (where에서 끝남)
+        if (whereCallCount === 1) {
+          return { limit: mockDB.limit };
+        }
+        // count 쿼리는 where에서 바로 결과 반환
+        return Promise.resolve([{ count: 5 }]);
+      });
+
+      const result = await service.findByUserCodeWithStats('ABCD1234');
+
+      expect(result).toBeDefined();
+      expect(result.user.userCode).toBe('ABCD1234');
+      expect(result.followersCount).toBe(5);
+      expect(result.followingCount).toBe(5);
+      expect(result.postsCount).toBe(5);
+    });
+
+    it('사용자가 없으면 NotFoundException 발생', async () => {
+      mockDB.limit = jest.fn().mockResolvedValueOnce([]);
+
+      await expect(
+        service.findByUserCodeWithStats('NOTFOUND'),
+      ).rejects.toThrow('사용자를 찾을 수 없습니다.');
+    });
+  });
 });
