@@ -1,7 +1,16 @@
-import { pgTable, varchar, text, timestamp, bigint } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  varchar,
+  text,
+  timestamp,
+  bigint,
+  pgEnum,
+} from 'drizzle-orm/pg-core';
+
+export const roleEnum = pgEnum('user_role', ['admin', 'moderator', 'user']);
 
 export const users = pgTable('users', {
-  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(), // biginteger 사용
+  id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
   socialId: varchar('social_id', { length: 255 }).default(''),
   email: varchar('email', { length: 255 }).notNull().unique(),
   phoneNumber: varchar('phone_number', { length: 255 }).default(''),
@@ -9,6 +18,7 @@ export const users = pgTable('users', {
   profileImageUrl: varchar('profile_image_url', { length: 255 }).default(''),
   password: varchar('password', { length: 255 }),
   provider: varchar('provider', { length: 50 }).notNull(),
+  role: roleEnum('role').default('user').notNull(),
   bio: text('bio').default(''),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
