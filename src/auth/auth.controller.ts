@@ -1,15 +1,7 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  UseGuards,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, Req, Res } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ConfigService } from '@nestjs/config';
-import { AuthGuard } from '@nestjs/passport';
+import { GoogleClient } from './clients/google.client';
 import type { Request, Response } from 'express';
 import { SigninRequestDto } from './dto';
 import { toUserResponse } from '@/users/dto';
@@ -19,24 +11,84 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly googleClient: GoogleClient,
   ) {}
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
-  async googleAuth() {
-    // Google OAuth 로그인 페이지로 리다이렉트
+  async googleAuth(@Req() req: Request, @Res() res: Response) {
+    // referer에서 origin 추출
+    const referer = req.headers.referer || req.headers.origin;
+    let origin = this.configService.getOrThrow<string>('FRONTEND_URL');
+
+    if (referer) {
+      try {
+        const url = new URL(referer);
+        origin = url.origin;
+      } catch {
+        // invalid URL, use default
+      }
+    }
+
+    // state에 origin 인코딩
+    const state = Buffer.from(JSON.stringify({ origin })).toString('base64');
+    const clientId = this.configService.getOrThrow<string>('GOOGLE_CLIENT_ID');
+    const callbackUrl = this.configService.getOrThrow<string>(
+      'GOOGLE_CALLBACK_URL',
+    );
+
+    const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    googleAuthUrl.searchParams.set('client_id', clientId);
+    googleAuthUrl.searchParams.set('redirect_uri', callbackUrl);
+    googleAuthUrl.searchParams.set('response_type', 'code');
+    googleAuthUrl.searchParams.set('scope', 'email profile');
+    googleAuthUrl.searchParams.set('state', state);
+
+    res.redirect(googleAuthUrl.toString());
   }
 
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
-  async googleAuthCallback(@Req() req: Request, @Res() res: Response) {
-    const googleProfile = req.user as any;
+  async googleAuthCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    // Google에서 토큰 교환 및 유저 정보 조회
+    const googleAccessToken = await this.googleClient.getToken(code);
+    const googleProfile = await this.googleClient.getUserInfo(googleAccessToken);
+
+    // JWT 토큰 생성
     const { accessToken, refreshToken } =
       await this.authService.validateOauthLogin(googleProfile);
 
-    this.setAuthCookies(res, accessToken, refreshToken);
-    const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
-    res.redirect(`${frontendUrl}`);
+    // state에서 origin 추출
+    let frontendOrigin = this.configService.getOrThrow<string>('FRONTEND_URL');
+
+    if (state) {
+      try {
+        const decoded = JSON.parse(Buffer.from(state, 'base64').toString());
+        if (decoded.origin) {
+          frontendOrigin = decoded.origin;
+        }
+      } catch {
+        // invalid state, use default
+      }
+    }
+
+    res.redirect(
+      `${frontendOrigin}/auth/callback?accessToken=${accessToken}&refreshToken=${refreshToken}`,
+    );
+  }
+
+  @Post('set-cookies')
+  async setCookies(
+    @Body() body: { accessToken: string; refreshToken: string },
+    @Res() res: Response,
+  ) {
+    this.setAuthCookies(res, body.accessToken, body.refreshToken);
+    return res.status(200).json({
+      success: true,
+      message: '쿠키 설정 완료',
+    });
   }
 
   @Post('refresh')

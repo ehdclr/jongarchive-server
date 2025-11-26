@@ -27,7 +27,7 @@ describe('UsersService', () => {
     destination: '',
     filename: '',
     path: '',
-    stream: null,
+    stream: null as any,
   };
 
   beforeEach(async () => {
@@ -95,7 +95,7 @@ describe('UsersService', () => {
 
       mockDB.returning.mockResolvedValueOnce([mockCreatedUser]);
 
-      const result = await service.createUser(userData, null);
+      const result = await service.createUser(userData);
 
       expect(result).toBeDefined();
       expect(result.email).toBe(userData.email);
@@ -129,7 +129,7 @@ describe('UsersService', () => {
 
       mockDB.returning.mockResolvedValueOnce([mockCreatedUser]);
 
-      await service.createUser(userData, null);
+      await service.createUser(userData);
 
       //호출 확인
       expect(bcrypt.hash).toHaveBeenCalledWith('plain_password', 10);
@@ -148,7 +148,7 @@ describe('UsersService', () => {
       // 이메일 중복 체크에서 기존 사용자 반환
       mockDB.where = jest.fn().mockResolvedValueOnce([existingUser]);
 
-      await expect(service.createUser(userData, null)).rejects.toThrow(
+      await expect(service.createUser(userData)).rejects.toThrow(
         '이미 존재하는 이메일입니다.',
       );
     });

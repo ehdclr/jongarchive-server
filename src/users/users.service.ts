@@ -9,7 +9,10 @@ import { User, users as usersSchema } from '@/database/schema';
 import * as bcrypt from 'bcrypt';
 import { AwsService } from '@/aws/aws.service';
 import { eq, and } from 'drizzle-orm';
-import { CreateUserDto } from './dto';
+import {
+  CreateUserDto,
+  UpdateUserWithFileDto,
+} from './dto';
 
 export interface CreateUserWithFileDto extends CreateUserDto {
   profileImage?: Express.Multer.File | null;
@@ -93,5 +96,34 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  async updateUser(
+    id: number,
+    updateUserDto: UpdateUserWithFileDto,
+  ): Promise<User> {
+    const user = await this.findByIdOrFail(id);
+
+    let profileImageUrl = user.profileImageUrl;
+
+    if (updateUserDto.profileImage) {
+      profileImageUrl = await this.awsService.uploadFile(
+        updateUserDto.profileImage,
+        `users/profile`,
+      );
+    }
+
+    const [updatedUser] = await this.db
+      .update(usersSchema)
+      .set({
+        name: updateUserDto.name ?? user.name,
+        phoneNumber: updateUserDto.phoneNumber ?? user.phoneNumber,
+        bio: updateUserDto.bio ?? user.bio,
+        profileImageUrl,
+      })
+      .where(eq(usersSchema.id, id))
+      .returning();
+
+    return updatedUser;
   }
 }
