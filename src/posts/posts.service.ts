@@ -4,8 +4,9 @@ import {
   Post,
   posts as postsSchema,
   users as usersSchema,
+  categories as categoriesSchema,
 } from '@/database/schema';
-import { eq, and, desc, or } from 'drizzle-orm';
+import { eq, and, desc, or, isNull } from 'drizzle-orm';
 import { CreatePostWithFileDto, UpdatePostWithFileDto } from './dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { AwsService } from '@/aws/aws.service';
@@ -17,9 +18,17 @@ export interface AuthorInfo {
   userCode: string;
 }
 
+export interface CategoryInfo {
+  id: number;
+  name: string;
+  slug: string;
+  color: string | null;
+}
+
 export interface PostWithAuthor {
   post: Post;
   author: AuthorInfo;
+  category: CategoryInfo | null;
 }
 
 export interface PaginatedResult<T> {
@@ -74,7 +83,7 @@ export class PostsService {
     const [post] = await this.db
       .select()
       .from(postsSchema)
-      .where(eq(postsSchema.id, id))
+      .where(and(eq(postsSchema.id, id), isNull(postsSchema.deletedAt)))
       .limit(1);
 
     return post || null;
@@ -128,14 +137,18 @@ export class PostsService {
   }
 
   async delete(id: number, authorId: number): Promise<Post> {
-    const [post] = await this.db
-      .delete(postsSchema)
-      .where(and(eq(postsSchema.id, id), eq(postsSchema.authorId, authorId)))
-      .returning();
-
-    if (!post) {
+    // 먼저 게시물이 존재하고 삭제되지 않았는지 확인
+    const existingPost = await this.findById(id);
+    if (!existingPost || existingPost.authorId !== authorId) {
       throw new NotFoundException('게시물을 찾을 수 없습니다.');
     }
+
+    // Soft delete - deletedAt 설정
+    const [post] = await this.db
+      .update(postsSchema)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(postsSchema.id, id), eq(postsSchema.authorId, authorId)))
+      .returning();
 
     return post;
   }
@@ -156,7 +169,7 @@ export class PostsService {
     const limit = pagination.limit || 10;
     const offset = (page - 1) * limit;
 
-    // 공개 게시물 OR 본인의 비공개 게시물만 조회
+    // 공개 게시물 OR 본인의 비공개 게시물만 조회 (삭제되지 않은 것만)
     const results = await this.db
       .select({
         post: postsSchema,
@@ -166,13 +179,23 @@ export class PostsService {
           profileImageUrl: usersSchema.profileImageUrl,
           userCode: usersSchema.userCode,
         },
+        category: {
+          id: categoriesSchema.id,
+          name: categoriesSchema.name,
+          slug: categoriesSchema.slug,
+          color: categoriesSchema.color,
+        },
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
+      .leftJoin(categoriesSchema, eq(postsSchema.categoryId, categoriesSchema.id))
       .where(
-        or(
-          eq(postsSchema.isPublished, true),
-          eq(postsSchema.authorId, currentUserId),
+        and(
+          isNull(postsSchema.deletedAt),
+          or(
+            eq(postsSchema.isPublished, true),
+            eq(postsSchema.authorId, currentUserId),
+          ),
         ),
       )
       .orderBy(desc(postsSchema.createdAt))
@@ -205,10 +228,20 @@ export class PostsService {
           profileImageUrl: usersSchema.profileImageUrl,
           userCode: usersSchema.userCode,
         },
+        category: {
+          id: categoriesSchema.id,
+          name: categoriesSchema.name,
+          slug: categoriesSchema.slug,
+          color: categoriesSchema.color,
+        },
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
-      .where(eq(postsSchema.id, id))
+      .leftJoin(
+        categoriesSchema,
+        eq(postsSchema.categoryId, categoriesSchema.id),
+      )
+      .where(and(eq(postsSchema.id, id), isNull(postsSchema.deletedAt)))
       .limit(1);
 
     if (!result) {
@@ -240,10 +273,22 @@ export class PostsService {
           profileImageUrl: usersSchema.profileImageUrl,
           userCode: usersSchema.userCode,
         },
+        category: {
+          id: categoriesSchema.id,
+          name: categoriesSchema.name,
+          slug: categoriesSchema.slug,
+          color: categoriesSchema.color,
+        },
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
-      .where(eq(postsSchema.authorId, authorId))
+      .leftJoin(
+        categoriesSchema,
+        eq(postsSchema.categoryId, categoriesSchema.id),
+      )
+      .where(
+        and(eq(postsSchema.authorId, authorId), isNull(postsSchema.deletedAt)),
+      )
       .orderBy(desc(postsSchema.createdAt))
       .offset(offset)
       .limit(limit + 1);
@@ -278,10 +323,25 @@ export class PostsService {
           profileImageUrl: usersSchema.profileImageUrl,
           userCode: usersSchema.userCode,
         },
+        category: {
+          id: categoriesSchema.id,
+          name: categoriesSchema.name,
+          slug: categoriesSchema.slug,
+          color: categoriesSchema.color,
+        },
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
-      .where(eq(postsSchema.categoryId, categoryId))
+      .leftJoin(
+        categoriesSchema,
+        eq(postsSchema.categoryId, categoriesSchema.id),
+      )
+      .where(
+        and(
+          eq(postsSchema.categoryId, categoryId),
+          isNull(postsSchema.deletedAt),
+        ),
+      )
       .orderBy(desc(postsSchema.createdAt))
       .offset(offset)
       .limit(limit + 1);
@@ -316,13 +376,24 @@ export class PostsService {
           profileImageUrl: usersSchema.profileImageUrl,
           userCode: usersSchema.userCode,
         },
+        category: {
+          id: categoriesSchema.id,
+          name: categoriesSchema.name,
+          slug: categoriesSchema.slug,
+          color: categoriesSchema.color,
+        },
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
+      .leftJoin(
+        categoriesSchema,
+        eq(postsSchema.categoryId, categoriesSchema.id),
+      )
       .where(
         and(
           eq(postsSchema.authorId, currentUserId),
           eq(postsSchema.isPublished, false),
+          isNull(postsSchema.deletedAt),
         ),
       )
       .orderBy(desc(postsSchema.createdAt))

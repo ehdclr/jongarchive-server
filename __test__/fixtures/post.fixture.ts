@@ -7,9 +7,17 @@ export interface AuthorInfo {
   profileImageUrl: string | null;
 }
 
+export interface CategoryInfo {
+  id: number;
+  name: string;
+  slug: string;
+  color: string | null;
+}
+
 export interface PostWithAuthor {
   post: Post;
   author: AuthorInfo;
+  category: CategoryInfo | null;
 }
 
 /**
@@ -37,6 +45,7 @@ export const createMockPost = (overrides?: Partial<Post>): Post => ({
   isPublished: false,
   createdAt: faker.date.past(),
   updatedAt: faker.date.recent(),
+  deletedAt: null,
   ...overrides,
 });
 
@@ -51,16 +60,35 @@ export const createMockAuthor = (overrides?: Partial<AuthorInfo>): AuthorInfo =>
 });
 
 /**
+ * 카테고리 정보 Factory
+ */
+export const createMockCategory = (
+  overrides?: Partial<CategoryInfo>,
+): CategoryInfo => ({
+  id: faker.number.int({ min: 1, max: 100 }),
+  name: faker.word.noun(),
+  slug: faker.helpers.slugify(faker.word.noun()),
+  color: faker.color.rgb(),
+  ...overrides,
+});
+
+/**
  * 게시물 + 작성자 Factory
  */
 export const createMockPostWithAuthor = (overrides?: {
   post?: Partial<Post>;
   author?: Partial<AuthorInfo>;
+  category?: Partial<CategoryInfo> | null;
 }): PostWithAuthor => {
-  const authorId = overrides?.author?.id ?? faker.number.int({ min: 1, max: 1000 });
+  const authorId =
+    overrides?.author?.id ?? faker.number.int({ min: 1, max: 1000 });
   return {
     post: createMockPost({ ...overrides?.post, authorId }),
     author: createMockAuthor({ ...overrides?.author, id: authorId }),
+    category:
+      overrides?.category === null
+        ? null
+        : createMockCategory(overrides?.category),
   };
 };
 

@@ -48,6 +48,7 @@ describe('PostsService', () => {
       set: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       innerJoin: jest.fn().mockReturnThis(),
+      leftJoin: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       offset: jest.fn().mockReturnThis(),
     };
@@ -293,19 +294,33 @@ describe('PostsService', () => {
     });
   });
 
-  describe('delete', () => {
-    it('게시물 삭제', async () => {
-      mockDb.returning = jest.fn().mockResolvedValue([mockPost]);
+  describe('delete (soft delete)', () => {
+    it('게시물 soft delete - deletedAt이 설정됨', async () => {
+      const deletedPost = createMockPost({
+        ...mockPost,
+        deletedAt: new Date(),
+      });
+      mockDb.returning = jest.fn().mockResolvedValue([deletedPost]);
 
       const result = await service.delete(1, 1);
 
-      expect(result).toEqual(mockPost);
+      expect(result.deletedAt).not.toBeNull();
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockDb.set).toHaveBeenCalled();
     });
 
     it('게시물이 없으면 NotFoundException 발생', async () => {
-      mockDb.returning = jest.fn().mockResolvedValue([]);
+      // findById에서 게시물을 찾지 못함
+      mockDb.limit = jest.fn().mockResolvedValue([]);
 
       await expect(service.delete(999, 1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('이미 삭제된 게시물은 NotFoundException 발생', async () => {
+      // findById에서 deletedAt이 null인 것만 조회하므로 이미 삭제된 게시물은 조회 안됨
+      mockDb.limit = jest.fn().mockResolvedValue([]);
+
+      await expect(service.delete(1, 1)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -421,6 +436,33 @@ describe('PostsService', () => {
         expect(item.post.isPublished).toBe(false);
         expect(item.post.authorId).toBe(currentUserId);
       });
+    });
+  });
+
+  describe('soft delete 필터링', () => {
+    it('findById - 삭제된 게시물은 null 반환 (DB에서 필터링됨)', async () => {
+      // DB where절에서 deletedAt이 null인 것만 조회하므로 빈 결과 반환
+      mockDb.limit = jest.fn().mockResolvedValue([]);
+
+      const result = await service.findById(1);
+
+      expect(result).toBeNull();
+    });
+
+    it('findByIdOrFail - 삭제된 게시물은 NotFoundException 발생', async () => {
+      // DB where절에서 deletedAt이 null인 것만 조회하므로 빈 결과 반환
+      mockDb.limit = jest.fn().mockResolvedValue([]);
+
+      await expect(service.findByIdOrFail(1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('findByIdWithAuthor - 삭제된 게시물은 NotFoundException 발생', async () => {
+      // DB where절에서 deletedAt이 null인 것만 조회하므로 빈 결과 반환
+      mockDb.limit = jest.fn().mockResolvedValue([]);
+
+      await expect(service.findByIdWithAuthor(1, 1)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

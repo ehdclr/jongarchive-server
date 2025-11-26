@@ -25,6 +25,7 @@ export const posts = pgTable('posts', {
   isPublished: boolean('is_published').default(false),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 });
 
 export const postsRelations = relations(posts, ({ one }) => ({
