@@ -121,11 +121,13 @@ describe('PostsService', () => {
   });
 
   describe('findAllWithAuthor', () => {
+    const currentUserId = 1;
+
     it('게시물 목록과 작성자 정보, 페이지네이션 반환', async () => {
       mockDb.offset = jest.fn().mockReturnThis();
       mockDb.limit = jest.fn().mockResolvedValue([mockPostWithAuthor]);
 
-      const result = await service.findAllWithAuthor({ page: 1, limit: 10 });
+      const result = await service.findAllWithAuthor({ page: 1, limit: 10 }, currentUserId);
 
       expect(result.data).toEqual([mockPostWithAuthor]);
       expect(result.meta.page).toBe(1);
@@ -136,7 +138,7 @@ describe('PostsService', () => {
       mockDb.offset = jest.fn().mockReturnThis();
       mockDb.limit = jest.fn().mockResolvedValue([mockPostWithAuthor]);
 
-      const result = await service.findAllWithAuthor({});
+      const result = await service.findAllWithAuthor({}, currentUserId);
 
       expect(result.meta.page).toBe(1);
       expect(result.meta.limit).toBe(10);
@@ -146,7 +148,7 @@ describe('PostsService', () => {
       mockDb.offset = jest.fn().mockReturnThis();
       mockDb.limit = jest.fn().mockResolvedValue([]);
 
-      await service.findAllWithAuthor({ page: 2, limit: 10 });
+      await service.findAllWithAuthor({ page: 2, limit: 10 }, currentUserId);
 
       expect(mockDb.offset).toHaveBeenCalledWith(10);
     });
@@ -156,7 +158,7 @@ describe('PostsService', () => {
       mockDb.offset = jest.fn().mockReturnThis();
       mockDb.limit = jest.fn().mockResolvedValue(posts);
 
-      const result = await service.findAllWithAuthor({ page: 1, limit: 10 });
+      const result = await service.findAllWithAuthor({ page: 1, limit: 10 }, currentUserId);
 
       expect(result.data.length).toBe(10);
       expect(result.meta.hasMore).toBe(true);
@@ -167,7 +169,7 @@ describe('PostsService', () => {
       mockDb.offset = jest.fn().mockReturnThis();
       mockDb.limit = jest.fn().mockResolvedValue(posts);
 
-      const result = await service.findAllWithAuthor({ page: 1, limit: 10 });
+      const result = await service.findAllWithAuthor({ page: 1, limit: 10 }, currentUserId);
 
       expect(result.data.length).toBe(5);
       expect(result.meta.hasMore).toBe(false);
@@ -176,17 +178,22 @@ describe('PostsService', () => {
 
   describe('findByIdWithAuthor', () => {
     it('게시물과 작성자 정보 반환', async () => {
-      mockDb.limit = jest.fn().mockResolvedValue([mockPostWithAuthor]);
+      // 공개 게시물로 테스트
+      const publicPostWithAuthor = createMockPostWithAuthor({
+        post: { ...mockPost, isPublished: true },
+        author: { id: 1, name: 'Test User', profileImageUrl: 'https://example.com/image.jpg' },
+      });
+      mockDb.limit = jest.fn().mockResolvedValue([publicPostWithAuthor]);
 
-      const result = await service.findByIdWithAuthor(1);
+      const result = await service.findByIdWithAuthor(1, 999); // 다른 사용자가 조회해도 됨
 
-      expect(result).toEqual(mockPostWithAuthor);
+      expect(result).toEqual(publicPostWithAuthor);
     });
 
     it('게시물이 없으면 NotFoundException 발생', async () => {
       mockDb.limit = jest.fn().mockResolvedValue([]);
 
-      await expect(service.findByIdWithAuthor(999)).rejects.toThrow(
+      await expect(service.findByIdWithAuthor(999, 1)).rejects.toThrow(
         NotFoundException,
       );
     });
@@ -321,6 +328,99 @@ describe('PostsService', () => {
       const result = await service.unpublish(1, 1);
 
       expect(result.isPublished).toBe(false);
+    });
+  });
+
+  describe('findAllWithAuthor (공개/비공개 필터링)', () => {
+    it('공개된 게시물과 본인의 비공개 게시물만 반환', async () => {
+      const currentUserId = 1;
+      const otherUserId = 2;
+
+      // 공개 게시물 (다른 사용자)
+      const publicPost = createMockPostWithAuthor({
+        post: { id: 1, isPublished: true, authorId: otherUserId },
+        author: { id: otherUserId },
+      });
+
+      // 비공개 게시물 (본인)
+      const myPrivatePost = createMockPostWithAuthor({
+        post: { id: 2, isPublished: false, authorId: currentUserId },
+        author: { id: currentUserId },
+      });
+
+      mockDb.offset = jest.fn().mockReturnThis();
+      // DB에서 필터링된 결과 반환
+      mockDb.limit = jest.fn().mockResolvedValue([publicPost, myPrivatePost]);
+
+      const result = await service.findAllWithAuthor({ page: 1, limit: 10 }, currentUserId);
+
+      expect(result.data).toHaveLength(2);
+      expect(result.data).toContainEqual(publicPost);
+      expect(result.data).toContainEqual(myPrivatePost);
+    });
+  });
+
+  describe('findByIdWithAuthor (비공개 접근 제한)', () => {
+    it('공개 게시물은 누구나 조회 가능', async () => {
+      const publicPost = createMockPostWithAuthor({
+        post: { id: 1, isPublished: true, authorId: 2 },
+        author: { id: 2 },
+      });
+      mockDb.limit = jest.fn().mockResolvedValue([publicPost]);
+
+      const result = await service.findByIdWithAuthor(1, 999); // 다른 사용자가 조회
+
+      expect(result).toEqual(publicPost);
+    });
+
+    it('비공개 게시물은 작성자만 조회 가능', async () => {
+      const privatePost = createMockPostWithAuthor({
+        post: { id: 1, isPublished: false, authorId: 1 },
+        author: { id: 1 },
+      });
+      mockDb.limit = jest.fn().mockResolvedValue([privatePost]);
+
+      const result = await service.findByIdWithAuthor(1, 1); // 본인이 조회
+
+      expect(result).toEqual(privatePost);
+    });
+
+    it('비공개 게시물을 다른 사용자가 조회하면 NotFoundException', async () => {
+      const privatePost = createMockPostWithAuthor({
+        post: { id: 1, isPublished: false, authorId: 1 },
+        author: { id: 1 },
+      });
+      mockDb.limit = jest.fn().mockResolvedValue([privatePost]);
+
+      await expect(service.findByIdWithAuthor(1, 999)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('findMyPrivatePosts (내 비공개 글만 조회)', () => {
+    it('현재 사용자의 비공개 게시물만 반환', async () => {
+      const currentUserId = 1;
+
+      const myPrivatePost1 = createMockPostWithAuthor({
+        post: { id: 1, isPublished: false, authorId: currentUserId },
+        author: { id: currentUserId },
+      });
+      const myPrivatePost2 = createMockPostWithAuthor({
+        post: { id: 2, isPublished: false, authorId: currentUserId },
+        author: { id: currentUserId },
+      });
+
+      mockDb.offset = jest.fn().mockReturnThis();
+      mockDb.limit = jest.fn().mockResolvedValue([myPrivatePost1, myPrivatePost2]);
+
+      const result = await service.findMyPrivatePosts(currentUserId, { page: 1, limit: 10 });
+
+      expect(result.data).toHaveLength(2);
+      result.data.forEach((item) => {
+        expect(item.post.isPublished).toBe(false);
+        expect(item.post.authorId).toBe(currentUserId);
+      });
     });
   });
 });

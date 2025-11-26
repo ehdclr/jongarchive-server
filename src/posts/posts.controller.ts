@@ -22,11 +22,11 @@ import { Post as PostEntity } from '@/database/schema';
 import { JwtAuthGuard } from '@/auth/guards/jwt-auth.guard';
 
 @Controller('posts')
+@UseGuards(JwtAuthGuard)
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('thumbnail'))
   async create(
     @Body() createPostDto: CreatePostDto,
@@ -39,12 +39,12 @@ export class PostsController {
   @Get()
   async findAll(
     @Query() pagination: PaginationDto,
+    @Req() req: any,
   ): Promise<PaginatedResult<PostWithAuthor>> {
-    return this.postsService.findAllWithAuthor(pagination);
+    return this.postsService.findAllWithAuthor(pagination, req.user.id);
   }
 
   @Get('me/posts')
-  @UseGuards(JwtAuthGuard)
   async findMyPosts(
     @Req() req: any,
     @Query() pagination: PaginationDto,
@@ -53,6 +53,14 @@ export class PostsController {
       req.user.id,
       pagination,
     );
+  }
+
+  @Get('me/private')
+  async findMyPrivatePosts(
+    @Req() req: any,
+    @Query() pagination: PaginationDto,
+  ): Promise<PaginatedResult<PostWithAuthor>> {
+    return this.postsService.findMyPrivatePosts(req.user.id, pagination);
   }
 
   @Get('author/:authorId')
@@ -77,12 +85,12 @@ export class PostsController {
   @Get(':id')
   async findById(
     @Param('id', ParseIntPipe) id: number,
+    @Req() req: any,
   ): Promise<PostWithAuthor> {
-    return this.postsService.findByIdWithAuthor(id);
+    return this.postsService.findByIdWithAuthor(id, req.user.id);
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('thumbnail'))
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -94,7 +102,6 @@ export class PostsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
   async delete(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
@@ -103,7 +110,6 @@ export class PostsController {
   }
 
   @Patch(':id/publish')
-  @UseGuards(JwtAuthGuard)
   async publish(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
@@ -112,7 +118,6 @@ export class PostsController {
   }
 
   @Patch(':id/unpublish')
-  @UseGuards(JwtAuthGuard)
   async unpublish(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,

@@ -5,7 +5,7 @@ import {
   posts as postsSchema,
   users as usersSchema,
 } from '@/database/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, or } from 'drizzle-orm';
 import { CreatePostWithFileDto, UpdatePostWithFileDto } from './dto';
 import { PaginationDto } from '@/common/dto/pagination.dto';
 import { AwsService } from '@/aws/aws.service';
@@ -59,6 +59,7 @@ export class PostsService {
         thumbnailUrl,
         authorId,
         categoryId: createPostDto.categoryId || null,
+        isPublished: createPostDto.isPublished ?? false,
       })
       .returning();
 
@@ -149,11 +150,13 @@ export class PostsService {
 
   async findAllWithAuthor(
     pagination: PaginationDto,
+    currentUserId: number,
   ): Promise<PaginatedResult<PostWithAuthor>> {
     const page = pagination.page || 1;
     const limit = pagination.limit || 10;
     const offset = (page - 1) * limit;
 
+    // 공개 게시물 OR 본인의 비공개 게시물만 조회
     const results = await this.db
       .select({
         post: postsSchema,
@@ -166,6 +169,12 @@ export class PostsService {
       })
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
+      .where(
+        or(
+          eq(postsSchema.isPublished, true),
+          eq(postsSchema.authorId, currentUserId),
+        ),
+      )
       .orderBy(desc(postsSchema.createdAt))
       .offset(offset)
       .limit(limit + 1);
@@ -183,7 +192,10 @@ export class PostsService {
     };
   }
 
-  async findByIdWithAuthor(id: number): Promise<PostWithAuthor> {
+  async findByIdWithAuthor(
+    id: number,
+    currentUserId: number,
+  ): Promise<PostWithAuthor> {
     const [result] = await this.db
       .select({
         post: postsSchema,
@@ -200,6 +212,11 @@ export class PostsService {
       .limit(1);
 
     if (!result) {
+      throw new NotFoundException('게시물을 찾을 수 없습니다.');
+    }
+
+    // 비공개 게시물은 작성자만 조회 가능
+    if (!result.post.isPublished && result.post.authorId !== currentUserId) {
       throw new NotFoundException('게시물을 찾을 수 없습니다.');
     }
 
@@ -265,6 +282,49 @@ export class PostsService {
       .from(postsSchema)
       .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
       .where(eq(postsSchema.categoryId, categoryId))
+      .orderBy(desc(postsSchema.createdAt))
+      .offset(offset)
+      .limit(limit + 1);
+
+    const hasMore = results.length > limit;
+    const data = hasMore ? results.slice(0, limit) : results;
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        hasMore,
+      },
+    };
+  }
+
+  async findMyPrivatePosts(
+    currentUserId: number,
+    pagination: PaginationDto,
+  ): Promise<PaginatedResult<PostWithAuthor>> {
+    const page = pagination.page || 1;
+    const limit = pagination.limit || 10;
+    const offset = (page - 1) * limit;
+
+    const results = await this.db
+      .select({
+        post: postsSchema,
+        author: {
+          id: usersSchema.id,
+          name: usersSchema.name,
+          profileImageUrl: usersSchema.profileImageUrl,
+          userCode: usersSchema.userCode,
+        },
+      })
+      .from(postsSchema)
+      .innerJoin(usersSchema, eq(postsSchema.authorId, usersSchema.id))
+      .where(
+        and(
+          eq(postsSchema.authorId, currentUserId),
+          eq(postsSchema.isPublished, false),
+        ),
+      )
       .orderBy(desc(postsSchema.createdAt))
       .offset(offset)
       .limit(limit + 1);
