@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { FollowsModule } from './follows/follows.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { FollowsModule } from './follows/follows.module';
     PostsModule,
     CategoriesModule,
     FollowsModule,
+    UploadsModule,
   ],
   controllers: [],
   providers: [],
