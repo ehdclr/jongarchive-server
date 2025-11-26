@@ -5,6 +5,7 @@ import { AwsModule } from './aws/aws.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { CategoriesModule } from './categories/categories.module';
+import { FollowsModule } from './follows/follows.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CategoriesModule } from './categories/categories.module';
     AuthModule,
     PostsModule,
     CategoriesModule,
+    FollowsModule,
   ],
   controllers: [],
   providers: [],

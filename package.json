@@ -25,10 +25,11 @@
     "test:db:up": "docker-compose -f docker-compose.test.yml up -d",
     "test:db:down": "docker-compose -f docker-compose.test.yml down -v",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "if [ \"$NODE_ENV\" = \"production\" ]; then NODE_ENV=production node dist/database/migrate.js; elif [ \"$NODE_ENV\" = \"development\" ]; then NODE_ENV=development ts-node src/database/migrate.ts; else NODE_ENV=local ts-node src/database/migrate.ts; fi",
-    "db:push": "if [ \"$NODE_ENV\" = \"production\" ]; then NODE_ENV=production drizzle-kit push; elif [ \"$NODE_ENV\" = \"development\" ]; then NODE_ENV=development drizzle-kit push; else NODE_ENV=local drizzle-kit push; fi",
-    "db:drop": "if [ \"$NODE_ENV\" = \"production\" ]; then NODE_ENV=production drizzle-kit drop; elif [ \"$NODE_ENV\" = \"development\" ]; then NODE_ENV=development drizzle-kit drop; else NODE_ENV=local drizzle-kit drop; fi",
-    "db:studio": "if [ \"$NODE_ENV\" = \"production\" ]; then NODE_ENV=production drizzle-kit studio; elif [ \"$NODE_ENV\" = \"development\" ]; then NODE_ENV=development drizzle-kit studio; else NODE_ENV=local drizzle-kit studio; fi",
+    "db:migrate": "drizzle-kit migrate",
+    "db:sync": "yarn db:generate && yarn db:migrate",
+    "db:pull": "drizzle-kit pull",
+    "db:drop": "drizzle-kit drop",
+    "db:studio": "drizzle-kit studio",
     "setup:admin": "ts-node scripts/setup-admin.ts"
   },
   "dependencies": {
