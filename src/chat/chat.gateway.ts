@@ -7,6 +7,7 @@ import {
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
+import { Inject } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { ChatService, ChatMessageData } from './chat.service';
 import {
@@ -15,6 +16,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { DATABASE } from '@/database/database.module';
+import type { DrizzleClient } from '@/database/database.module';
+import { users } from '@/database/schema';
+import { eq } from 'drizzle-orm';
 
 interface JoinRoomPayload {
   roomId: number;
@@ -52,6 +57,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly chatService: ChatService,
     private readonly jwtService: JwtService,
+    @Inject(DATABASE) private readonly db: DrizzleClient,
   ) {}
 
   /**
@@ -69,12 +75,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // JWT 검증
       const payload = this.jwtService.verify(token);
 
-      // 소켓에 사용자 정보 저장
-      client.data.userId = payload.userId;
-      client.data.userCode = payload.userCode;
-      client.data.nickname = payload.name;
+      // DB에서 사용자 정보 조회
+      const [user] = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, payload.sub))
+        .limit(1);
 
-      this.logger.log(`Client connected: ${client.id} (User: ${payload.name})`);
+      if (!user) {
+        throw new UnauthorizedException('사용자를 찾을 수 없습니다');
+      }
+
+      // 소켓에 사용자 정보 저장
+      client.data.userId = user.id;
+      client.data.userCode = user.userCode;
+      client.data.nickname = user.name;
+
+      this.logger.log(`Client connected: ${client.id} (User: ${user.name})`);
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`);
       client.disconnect();

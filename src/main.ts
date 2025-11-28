@@ -6,10 +6,14 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import cookieParser from 'cookie-parser';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // WebSocket adapter 설정
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   const frontendUrl = configService.getOrThrow<string>('FRONTEND_URL');
 
