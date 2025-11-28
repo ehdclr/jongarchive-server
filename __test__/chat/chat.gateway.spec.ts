@@ -7,6 +7,12 @@ import { UnauthorizedException, Logger } from '@nestjs/common';
 describe('ChatGateway (TDD)', () => {
   let gateway: ChatGateway;
 
+  const mockDatabase = {
+    select: jest.fn(),
+    from: jest.fn(),
+    where: jest.fn(),
+  };
+
   const mockChatService = {
     validateRoom: jest.fn(),
     joinRoom: jest.fn(),
@@ -61,6 +67,10 @@ describe('ChatGateway (TDD)', () => {
           provide: JwtService,
           useValue: mockJwtService,
         },
+        {
+          provide: 'DATABASE',
+          useValue: mockDatabase,
+        },
       ],
     }).compile();
 
@@ -72,9 +82,9 @@ describe('ChatGateway (TDD)', () => {
 
     // JWT 기본 모킹
     mockJwtService.verify.mockReturnValue({
-      userId: 1,
+      sub: 1,
       userCode: 'USER001',
-      name: '테스트유저',
+      nickname: '테스트유저',
     });
   });
 
@@ -82,7 +92,10 @@ describe('ChatGateway (TDD)', () => {
     it('인증된 사용자는 연결에 성공해야 함', async () => {
       await gateway.handleConnection(mockSocket);
 
+
       expect(mockSocket.data.userId).toBe(1);
+      expect(mockSocket.data.userCode).toBe('USER001');
+      expect(mockSocket.data.nickname).toBe('테스트유저');
     });
 
     it('인증되지 않은 사용자는 연결이 거부되어야 함', async () => {

@@ -67,33 +67,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
-      console.log(token);
-
+  
       if (!token) {
         throw new UnauthorizedException('인증 토큰이 필요합니다');
       }
 
       // JWT 검증
       const payload = this.jwtService.verify(token, { secret: process.env.JWT_ACCESS_TOKEN_SECRET });
-      console.log(payload);
 
       // DB에서 사용자 정보 조회
-      const [user] = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.id, payload.sub))
-        .limit(1);
+      client.data.userId = payload.sub;
+      client.data.userCode = payload.userCode;
+      client.data.nickname = payload.nickname;
 
-      if (!user) {
-        throw new UnauthorizedException('사용자를 찾을 수 없습니다');
-      }
-
-      // 소켓에 사용자 정보 저장
-      client.data.userId = user.id;
-      client.data.userCode = user.userCode;
-      client.data.nickname = user.name;
-
-      this.logger.log(`Client connected: ${client.id} (User: ${user.name})`);
+      this.logger.log(`Client connected: ${client.id} (User: ${payload.nickname})`);
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`);
       client.disconnect();
