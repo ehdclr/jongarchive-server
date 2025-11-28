@@ -67,13 +67,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token;
+      console.log(token);
 
       if (!token) {
         throw new UnauthorizedException('인증 토큰이 필요합니다');
       }
 
       // JWT 검증
-      const payload = this.jwtService.verify(token);
+      const payload = this.jwtService.verify(token, { secret: process.env.JWT_ACCESS_TOKEN_SECRET });
+      console.log(payload);
 
       // DB에서 사용자 정보 조회
       const [user] = await this.db
