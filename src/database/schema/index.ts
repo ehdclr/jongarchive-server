@@ -2,3 +2,4 @@ export * from './user';
 export * from './category';
 export * from './post';
 export * from './follow';
+export * from './chat';

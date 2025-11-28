@@ -62,7 +62,7 @@ export const createMockAuthor = (overrides?: Partial<AuthorInfo>): AuthorInfo =>
 /**
  * 카테고리 정보 Factory
  */
-export const createMockCategory = (
+export const createMockCategoryInfo = (
   overrides?: Partial<CategoryInfo>,
 ): CategoryInfo => ({
   id: faker.number.int({ min: 1, max: 100 }),
@@ -88,7 +88,7 @@ export const createMockPostWithAuthor = (overrides?: {
     category:
       overrides?.category === null
         ? null
-        : createMockCategory(overrides?.category),
+        : createMockCategoryInfo(overrides?.category),
   };
 };
 

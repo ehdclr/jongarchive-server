@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import * as schema from './schema';
 
 export type DrizzleClient = NodePgDatabase<typeof schema>;
+export const DATABASE = 'DATABASE';
 
 @Global()
 @Module({

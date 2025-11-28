@@ -7,6 +7,7 @@ import { PostsModule } from './posts/posts.module';
 import { CategoriesModule } from './categories/categories.module';
 import { FollowsModule } from './follows/follows.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { UploadsModule } from './uploads/uploads.module';
     CategoriesModule,
     FollowsModule,
     UploadsModule,
+    ChatModule,
   ],
   controllers: [],
   providers: [],
